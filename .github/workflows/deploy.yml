@@ -1,0 +1,35 @@
+name: Deploy to Server (production)
+
+on:
+  push:
+    branches:
+      - release/production   # Trigger only when "production" branch is updated
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.PROD_SERVER_IP }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            cd /var/www/dine-in-restaurant-portal
+            echo "📦 Pulling latest code..."
+            git pull
+            
+            echo "📦 Installing dependencies..."
+            npm install
+            
+            echo "🔨 Building application..."
+            npm run build
+            
+            echo "Reloading webserver..."
+            sh ./reload.sh
+            
+            echo "✅ Deployment complete!"
