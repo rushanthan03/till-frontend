@@ -41,6 +41,7 @@ Use the users created by the backend (see its README). With the demo data loaded
 7. Managers: **Day end report** shows all sessions of a day with combined sales, tenders, cash movements and cash difference.
 8. Managers: **Stock** has an overview (low/out/negative, value), **Receive stock** (deliveries, updates cost), **Adjust / waste** (waste, damaged, expired, corrections), **Stocktake** (count a department, differences are corrected) and **History** (every change, including sales and refunds).
 9. Managers: **Promotions** (% off a product or department, or N-for-£X) apply automatically at the till while on and in date; the best single offer wins per item. **Customers** lists loyalty members. Cashiers use the **Customer** button to find or sign up a customer; they earn 1 point per £1 (taken back on refunds).
+10. Managers: **Reports** has VAT (by rate), Tender (cash/card), Departments and Products (best sellers with estimated margin) for Today, Yesterday, Last 7 days, This month, All time or a custom range. Export any report to CSV.
 
 ## Scripts
 | Command | What it does |

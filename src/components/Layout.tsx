@@ -15,6 +15,7 @@ import {
   Clock,
   FileText,
   Boxes,
+  BarChart3,
   BadgePercent,
   UsersRound,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ const menuItems: SideMenuListType[] = [
   { id: RouteLinks.SALES, label: 'Sales history', icon: History },
   { id: RouteLinks.SHIFTS, label: 'Till sessions', icon: Clock },
   { id: RouteLinks.DAY_REPORT, label: 'Day end report', icon: FileText },
+  { id: RouteLinks.REPORTS, label: 'Reports', icon: BarChart3 },
   { id: RouteLinks.PRODUCTS, label: 'Products', icon: Package },
   { id: RouteLinks.STOCK, label: 'Stock', icon: Boxes },
   { id: RouteLinks.PROMOTIONS, label: 'Promotions', icon: BadgePercent },
@@ -147,7 +149,7 @@ export const Layout: FC = () => {
   const visibleItems = menuItems.filter(item => allowed.includes(item.id) && item.id !== RouteLinks.SETTINGS);
 
   const operationItems = visibleItems.filter(item =>
-    [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT].includes(item.id as RouteLinks));
+    [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT, RouteLinks.REPORTS].includes(item.id as RouteLinks));
   const managementItems = visibleItems.filter(item =>
     [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.PROMOTIONS, RouteLinks.CUSTOMERS, RouteLinks.USERS].includes(item.id as RouteLinks));
 

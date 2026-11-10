@@ -18,6 +18,7 @@ import { SalesHistory } from "../pages/SalesHistory";
 import { ShiftHistory } from "../pages/ShiftHistory";
 import { DayReportPage } from "../pages/DayReport";
 import { Stock } from "../pages/Stock";
+import { ReportsPage } from "../pages/Reports";
 import { PromotionsPage } from "../pages/Promotions";
 import { CustomersPage } from "../pages/Customers";
 
@@ -52,6 +53,7 @@ const WebRouter: FC = () => {
                 <Route path={RouteLinks.SALES} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <SalesHistory />)} />
                 <Route path={RouteLinks.SHIFTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <ShiftHistory />)} />
                 <Route path={RouteLinks.DAY_REPORT} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <DayReportPage />)} />
+                <Route path={RouteLinks.REPORTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <ReportsPage />)} />
                 <Route path={RouteLinks.STOCK} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <Stock />)} />
                 <Route path={RouteLinks.PROMOTIONS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <PromotionsPage />)} />
                 <Route path={RouteLinks.CUSTOMERS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <CustomersPage />)} />
