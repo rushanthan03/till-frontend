@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { handleApiError } from '../api/handleApiError';
 import { money } from '../utils/money';
 import { downloadCsv } from '../utils/csv';
-import { Preset, rangeFor } from '../utils/dateRange';
+import { PRESETS, Preset, rangeFor } from '../utils/dateRange';
 import { DepartmentReport, ProductReport, ReportsAPI, TenderReport, VatReport } from '../features/reports/reportsAPI';
 
 type Tab = 'vat' | 'tender' | 'departments' | 'products';
@@ -37,6 +37,7 @@ export const ReportsPage = () => {
     const [loading, setLoading] = useState(false);
 
     const range = useMemo(() => rangeFor(preset, customFrom, customTo), [preset, customFrom, customTo]);
+    const periodLabel = preset === 'custom' ? `${customFrom || '…'} to ${customTo || 'today'}` : (PRESETS.find(p => p.id === preset)?.label ?? '').toLowerCase();
     const rangeKey = `${range.from ?? ''}|${range.to ?? ''}`;
 
     useEffect(() => {
@@ -72,15 +73,15 @@ export const ReportsPage = () => {
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><BarChart3 className="w-6 h-6" />Reports</h1>
-                    <p className="text-sm text-gray-600">Figures are net of refunds. Refunds count on the day they were made. Voided sales are left out.</p>
+                    <p className="text-sm text-gray-600">{TABS.find(t => t.id === tab)?.label} report for {periodLabel}. Figures are net of refunds. Refunds count on the day they were made. Voided sales are left out.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 print:hidden">
                     <Button variant="outline" onClick={exportCsv}><Download className="w-4 h-4 mr-2" />Export CSV</Button>
                     <Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Print</Button>
                 </div>
             </div>
-            <PeriodPicker preset={preset} customFrom={customFrom} customTo={customTo} onPreset={setPreset} onCustomFrom={setCustomFrom} onCustomTo={setCustomTo} />
-            <div className="flex flex-wrap gap-1 border-b border-gray-200" role="tablist">
+            <div className="print:hidden"><PeriodPicker preset={preset} customFrom={customFrom} customTo={customTo} onPreset={setPreset} onCustomFrom={setCustomFrom} onCustomTo={setCustomTo} /></div>
+            <div className="flex flex-wrap gap-1 border-b border-gray-200 print:hidden" role="tablist">
                 {TABS.map(t => (
                     <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
                         className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${tab === t.id ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-600 hover:text-gray-900'}`}>{t.label}</button>

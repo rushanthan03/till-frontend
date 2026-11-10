@@ -46,9 +46,9 @@ export const DayReportPage = () => {
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><FileText className="w-6 h-6" />Day end report</h1>
-                    <p className="text-sm text-gray-600">Everything that happened on the tills for one trading day.</p>
+                    <p className="text-sm text-gray-600">Everything that happened on the tills for one trading day ({report?.date ?? date}).</p>
                 </div>
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-2 print:hidden">
                     <label className="text-sm font-medium text-gray-700">Date
                         <input type="date" value={date} max={today()} onChange={(e) => e.target.value && setDate(e.target.value)}
                             className="mt-1 block px-3 py-2 border border-gray-300 rounded-lg" />

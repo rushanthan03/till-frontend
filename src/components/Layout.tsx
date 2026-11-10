@@ -159,7 +159,7 @@ export const Layout: FC = () => {
 
   return (
       <div className="flex flex-1 flex-col min-h-screen bg-gray-50">
-        <nav className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40">
+        <nav className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40 print:hidden">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-4">
@@ -231,10 +231,10 @@ export const Layout: FC = () => {
         </div>
       </nav>
 
-      <div className="flex pt-16">
+      <div className="flex pt-16 print:pt-0">
         <aside
           className={`
-            fixed top-16 bottom-0 left-0 z-30 w-64 bg-linear-to-b from-white to-gray-50 border-r border-gray-200 shadow-sm
+            print:hidden fixed top-16 bottom-0 left-0 z-30 w-64 bg-linear-to-b from-white to-gray-50 border-r border-gray-200 shadow-sm
             transform transition-transform duration-300 ease-in-out flex flex-col
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
@@ -315,7 +315,7 @@ export const Layout: FC = () => {
         )}
       </div>
 
-      <main className="pl-0 lg:pl-64">
+      <main className="pl-0 lg:pl-64 print:pl-0">
         <div className='flex flex-1 flex-col p-4'>
           <Outlet />
         </div>

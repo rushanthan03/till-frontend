@@ -47,6 +47,7 @@ Use the users created by the backend (see its README). With the demo data loaded
 | Command | What it does |
 |---|---|
 | `npm run dev` | Development server |
+| `npm test` | Unit tests (basket maths, offers, CSV export) |
 | `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serve the production build locally |
 
