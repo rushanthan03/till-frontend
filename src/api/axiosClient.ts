@@ -39,17 +39,16 @@ axiosClient.interceptors.request.use(
             const user = JSON.parse(userRaw) as User;
             value.headers.set("x-tenant-id", user.tenantId);
 
-            // For SUPER_ADMIN and TENANT_ADMIN, token restaurantId is null.
-            // Auto-append ?restaurantId from the selected outlet stored in localStorage ONLY if the endpoint URL does NOT already embed restaurantId in the path.
+            // Admins are not tied to one store, so the till endpoints get the selected store as ?storeId.
+            // Other calls (tenants, users, store management) never receive it.
             const adminRoles = ['SUPER_ADMIN', 'TENANT_ADMIN', 'super_admin', 'tenant_admin'];
-            if (adminRoles.includes(user.role ?? '')) {
-                const selectedRestaurantId = localStorage.getItem('selectedRestaurantId')
+            const isTillCall = /^\/api\/(products|sales|shifts|refunds)(\/|\?|$)/.test(value.url || '');
+            if (adminRoles.includes(user.role ?? '') && isTillCall) {
+                const selectedStoreId = localStorage.getItem('selectedRestaurantId')
                     || user?.restaurantId
                     || user?.restaurant?.id;
-                const urlHasRestaurantInPath = /\/restaurants\/[a-zA-Z0-9_-]{8,}/i.test(value.url || '');
-                if (selectedRestaurantId && value.method !== 'post' && value.method !== 'patch' && value.method !== 'put' && !urlHasRestaurantInPath) {
-                    // Append to GET/DELETE query params only; POST/PATCH bodies already include restaurantId
-                    value.params = { restaurantId: selectedRestaurantId, ...value.params };
+                if (selectedStoreId && value.method !== 'post' && value.method !== 'patch' && value.method !== 'put') {
+                    value.params = { storeId: selectedStoreId, ...value.params };
                 }
             }
         }

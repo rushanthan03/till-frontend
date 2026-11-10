@@ -14,21 +14,21 @@ import type { ShiftDetail } from '../../features/shifts/types';
 
 interface Props {
     shiftId: string;
-    restaurantId: string;
+    storeId: string;
     storeName: string;
     onClose: () => void;
 }
 
 /** A session's report: the saved Z report if closed, live X figures if still open. */
-export function ShiftDetailModal({ shiftId, restaurantId, storeName, onClose }: Props) {
+export function ShiftDetailModal({ shiftId, storeId, storeName, onClose }: Props) {
     const navigate = useNavigate();
     const [detail, setDetail] = useState<ShiftDetail | null>(null);
 
     useEffect(() => {
         setDetail(null);
-        ShiftsAPI.detail(shiftId, restaurantId).then(setDetail).catch((e) => { toast.error(handleApiError(e)); onClose(); });
+        ShiftsAPI.detail(shiftId, storeId).then(setDetail).catch((e) => { toast.error(handleApiError(e)); onClose(); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shiftId, restaurantId]);
+    }, [shiftId, storeId]);
 
     const shift = detail?.shift;
     const isOpen = shift?.status === 'open';

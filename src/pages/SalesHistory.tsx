@@ -17,7 +17,7 @@ const timeFmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: '2
 
 export const SalesHistory = () => {
     const { user } = useAuth();
-    const restaurantId = localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
+    const storeId = localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
     const storeName = user?.restaurant?.name || 'Store';
     const a = user?.restaurant?.address;
     const storeAddress = a ? [a.lane, a.city, a.district].filter(Boolean).join(', ') : undefined;
@@ -51,15 +51,15 @@ export const SalesHistory = () => {
     }, [receiptInput, cashierInput]);
 
     const load = useCallback(async () => {
-        if (!restaurantId) return;
+        if (!storeId) return;
         const mine = ++requestId.current;
         setLoading(true);
         try {
             const range = rangeFor(preset, customFrom, customTo);
             const summaryRange = preset === 'all' ? allTimeRange() : range;
             const [list, sum] = await Promise.all([
-                SalesAPI.list(restaurantId, { ...range, shiftId, receiptNumber: receipt || undefined, cashier: cashier || undefined, status: status || undefined, method: method || undefined, page, limit }),
-                SalesAPI.summary(restaurantId, { ...summaryRange, shiftId }),
+                SalesAPI.list(storeId, { ...range, shiftId, receiptNumber: receipt || undefined, cashier: cashier || undefined, status: status || undefined, method: method || undefined, page, limit }),
+                SalesAPI.summary(storeId, { ...summaryRange, shiftId }),
             ]);
             if (mine !== requestId.current) return; // a newer request superseded this one
             setSales(list.data); setTotal(list.total); setSummary(sum);
@@ -68,7 +68,7 @@ export const SalesHistory = () => {
         } finally {
             if (mine === requestId.current) setLoading(false);
         }
-    }, [restaurantId, shiftId, preset, customFrom, customTo, receipt, cashier, status, method, page, limit]);
+    }, [storeId, shiftId, preset, customFrom, customTo, receipt, cashier, status, method, page, limit]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -76,7 +76,7 @@ export const SalesHistory = () => {
     const clearShift = () => { setSearchParams({}); setPreset('today'); setPage(1); };
     const hasFilters = !!(receiptInput || cashierInput || status || method || (!shiftId && preset !== 'today'));
 
-    if (!restaurantId) {
+    if (!storeId) {
         return (
             <div className="bg-white rounded-xl border border-gray-100 p-10 text-center text-gray-600">
                 <History className="w-10 h-10 mx-auto mb-3 text-gray-400" />
@@ -188,7 +188,7 @@ export const SalesHistory = () => {
                     handleChangePage={(_, p) => setPage(p + 1)} handleChangeRowsPerPage={(e) => { setLimit(Number(e.target.value)); setPage(1); }} />
             </div>
 
-            {selectedId && <SaleDetailModal saleId={selectedId} restaurantId={restaurantId} storeName={storeName} storeAddress={storeAddress} onClose={() => setSelectedId(null)} />}
+            {selectedId && <SaleDetailModal saleId={selectedId} storeId={storeId} storeName={storeName} storeAddress={storeAddress} onClose={() => setSelectedId(null)} />}
         </div>
     );
 };

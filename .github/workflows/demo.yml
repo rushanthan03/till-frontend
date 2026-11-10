@@ -23,7 +23,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/dinesoon:restaurant
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/till-frontend:latest
             
   deploy:
     needs: build

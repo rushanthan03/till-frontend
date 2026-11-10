@@ -1,4 +1,4 @@
-# DineFlow Till – Frontend
+# Supermarket Till – Frontend
 
 React 19 + Vite + TypeScript + Tailwind web app for the till: checkout screen, products, sales history, till sessions and platform/store management.
 

@@ -25,25 +25,25 @@ import type { DepartmentCount, Product } from '../features/products/types';
 import type { PaymentInput, Sale } from '../features/sales/types';
 import type { Shift } from '../features/shifts/types';
 
-const heldKey = (restaurantId: string) => `till.heldSales.${restaurantId}`;
+const heldKey = (storeId: string) => `till.heldSales.${storeId}`;
 
-const readHeld = (restaurantId: string): HeldSale[] => {
+const readHeld = (storeId: string): HeldSale[] => {
     try {
-        const raw = localStorage.getItem(heldKey(restaurantId));
+        const raw = localStorage.getItem(heldKey(storeId));
         return raw ? (JSON.parse(raw) as HeldSale[]) : [];
     } catch {
         return [];
     }
 };
-const writeHeld = (restaurantId: string, held: HeldSale[]) => {
-    try { localStorage.setItem(heldKey(restaurantId), JSON.stringify(held)); } catch { /* storage unavailable: held sales just won't persist */ }
+const writeHeld = (storeId: string, held: HeldSale[]) => {
+    try { localStorage.setItem(heldKey(storeId), JSON.stringify(held)); } catch { /* storage unavailable: held sales just won't persist */ }
 };
 
 const KEYPAD = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'];
 
 export const Till = () => {
     const { user } = useAuth();
-    const restaurantId =
+    const storeId =
         localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
     const storeName = user?.restaurant?.name || 'Store';
     const a = user?.restaurant?.address;
@@ -74,7 +74,7 @@ export const Till = () => {
     const [showXReport, setShowXReport] = useState(false);
     const [showClose, setShowClose] = useState(false);
     const [showRefund, setShowRefund] = useState(false);
-    const [held, setHeld] = useState<HeldSale[]>(() => (restaurantId ? readHeld(restaurantId) : []));
+    const [held, setHeld] = useState<HeldSale[]>(() => (storeId ? readHeld(storeId) : []));
 
     const inputRef = useRef<HTMLInputElement>(null);
     const totals = useMemo(() => basketTotals(basket), [basket]);
@@ -84,15 +84,15 @@ export const Till = () => {
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
 
     const loadShift = useCallback(() => {
-        if (!restaurantId) return;
-        ShiftsAPI.current(restaurantId).then(setShift).catch((e) => { setShift(null); toast.error(handleApiError(e)); });
-    }, [restaurantId]);
+        if (!storeId) return;
+        ShiftsAPI.current(storeId).then(setShift).catch((e) => { setShift(null); toast.error(handleApiError(e)); });
+    }, [storeId]);
     useEffect(() => { loadShift(); }, [loadShift]);
 
     const openTill = async (openingFloat: number, note?: string) => {
         setOpeningTill(true);
         try {
-            setShift(await ShiftsAPI.open(restaurantId, { openingFloat, note }));
+            setShift(await ShiftsAPI.open(storeId, { openingFloat, note }));
             toast.success('Till opened');
         } catch (error) {
             toast.error(handleApiError(error));
@@ -103,28 +103,28 @@ export const Till = () => {
     };
 
     useEffect(() => {
-        if (!restaurantId) return;
-        ProductsAPI.departments(restaurantId).then(setDepartments).catch((e) => toast.error(handleApiError(e)));
-    }, [restaurantId]);
+        if (!storeId) return;
+        ProductsAPI.departments(storeId).then(setDepartments).catch((e) => toast.error(handleApiError(e)));
+    }, [storeId]);
 
     useEffect(() => {
-        if (!restaurantId || !activeDept) { setDeptProducts([]); return; }
-        ProductsAPI.list({ restaurantId, department: activeDept, status: 'active', limit: 60 })
+        if (!storeId || !activeDept) { setDeptProducts([]); return; }
+        ProductsAPI.list({ storeId, department: activeDept, status: 'active', limit: 60 })
             .then(r => setDeptProducts(r.data))
             .catch((e) => toast.error(handleApiError(e)));
-    }, [restaurantId, activeDept]);
+    }, [storeId, activeDept]);
 
     // live name search while typing text (numeric input is treated as a barcode)
     useEffect(() => {
         const term = input.trim();
-        if (!restaurantId || term.length < 2 || /^[\d.]+$/.test(term)) { setResults([]); return; }
+        if (!storeId || term.length < 2 || /^[\d.]+$/.test(term)) { setResults([]); return; }
         const t = setTimeout(() => {
-            ProductsAPI.list({ restaurantId, search: term, status: 'active', limit: 8 })
+            ProductsAPI.list({ storeId, search: term, status: 'active', limit: 8 })
                 .then(r => setResults(r.data))
                 .catch(() => setResults([]));
         }, 250);
         return () => clearTimeout(t);
-    }, [input, restaurantId]);
+    }, [input, storeId]);
 
     /** Core entry point for every way of adding a product. */
     const addProduct = useCallback((product: Product, qty = 1) => {
@@ -151,7 +151,7 @@ export const Till = () => {
         const hadSeveralMatches = results.length > 1;
         setInput(''); setResults([]);
         try {
-            const product = await ProductsAPI.byBarcode(code, restaurantId);
+            const product = await ProductsAPI.byBarcode(code, storeId);
             addProduct(product, qty);
         } catch (error) {
             if (hadSeveralMatches) { setInput(code); toast.info('Pick a product from the list'); return; }
@@ -191,7 +191,7 @@ export const Till = () => {
             ...held,
             { ref: `HOLD-${String(held.length + 1).padStart(2, '0')}-${Date.now().toString().slice(-4)}`, heldAt: new Date().toISOString(), lines: basket, ageVerified, total: totals.total },
         ];
-        setHeld(next); writeHeld(restaurantId, next);
+        setHeld(next); writeHeld(storeId, next);
         toast.success('Sale held');
         clearSale();
     };
@@ -200,19 +200,19 @@ export const Till = () => {
         if (basket.length) { toast.error('Hold or void the current sale first'); return; }
         setBasket(h.lines); setAgeVerified(h.ageVerified);
         const next = held.filter(x => x.ref !== h.ref);
-        setHeld(next); writeHeld(restaurantId, next);
+        setHeld(next); writeHeld(storeId, next);
         setShowHeld(false);
     };
 
     const deleteHeld = (h: HeldSale) => {
         const next = held.filter(x => x.ref !== h.ref);
-        setHeld(next); writeHeld(restaurantId, next);
+        setHeld(next); writeHeld(storeId, next);
     };
 
     const completeSale = async (payments: PaymentInput[]) => {
         setSubmitting(true);
         try {
-            const sale = await SalesAPI.create(restaurantId, {
+            const sale = await SalesAPI.create(storeId, {
                 items: basket.map(l => ({ productId: l.product.id, quantity: l.quantity })),
                 payments,
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
@@ -229,7 +229,7 @@ export const Till = () => {
         }
     };
 
-    if (!restaurantId) {
+    if (!storeId) {
         return (
             <div className="bg-white rounded-xl border border-gray-100 p-10 text-center text-gray-600">
                 <ScanBarcode className="w-10 h-10 mx-auto mb-3 text-gray-400" />
@@ -422,11 +422,11 @@ export const Till = () => {
                     }}
                 />
             )}
-            {showXReport && <XReportModal restaurantId={restaurantId} storeName={storeName} onClose={() => setShowXReport(false)} />}
-            {showRefund && <RefundModal restaurantId={restaurantId} storeName={storeName} onClose={() => setShowRefund(false)} />}
+            {showXReport && <XReportModal storeId={storeId} storeName={storeName} onClose={() => setShowXReport(false)} />}
+            {showRefund && <RefundModal storeId={storeId} storeName={storeName} onClose={() => setShowRefund(false)} />}
             {showClose && (
                 <CloseTillModal
-                    restaurantId={restaurantId}
+                    storeId={storeId}
                     storeName={storeName}
                     heldCount={held.length}
                     basketHasItems={basket.length > 0}
@@ -436,7 +436,7 @@ export const Till = () => {
             )}
             {showPayment && <PaymentModal total={totals.total} isSubmitting={submitting} onClose={() => setShowPayment(false)} onComplete={completeSale} />}
             {showHeld && <HeldSalesModal held={held} onRecall={recall} onDelete={deleteHeld} onClose={() => setShowHeld(false)} />}
-            {showPriceCheck && <PriceCheckModal restaurantId={restaurantId} onAdd={(p) => addProduct(p, 1)} onClose={() => setShowPriceCheck(false)} />}
+            {showPriceCheck && <PriceCheckModal storeId={storeId} onAdd={(p) => addProduct(p, 1)} onClose={() => setShowPriceCheck(false)} />}
 
             <Modal isOpen={confirmVoidSale} onClose={() => setConfirmVoidSale(false)} title="Void entire sale?" size="sm">
                 <p className="text-gray-700">This removes all {totals.itemCount} items ({money(totals.total)}) from the basket.</p>

@@ -24,8 +24,8 @@ function App() {
     }
     
     document.title = user?.restaurant?.name 
-      ? `${user.restaurant.name} - DineFlow Till` 
-      : "DineFlow Till";
+      ? `${user.restaurant.name} - Supermarket Till` 
+      : "Supermarket Till";
   }, [user]);
 
 

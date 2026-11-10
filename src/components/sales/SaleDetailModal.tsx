@@ -16,7 +16,7 @@ type Tab = 'items' | 'payments' | 'refunds' | 'receipt';
 
 interface Props {
     saleId: string;
-    restaurantId: string;
+    storeId: string;
     storeName: string;
     storeAddress?: string;
     onClose: () => void;
@@ -27,15 +27,15 @@ const MethodIcon = ({ method }: { method: 'cash' | 'card' }) => method === 'cash
     ? <Banknote className="w-4 h-4 text-green-600" aria-hidden />
     : <CreditCard className="w-4 h-4 text-blue-600" aria-hidden />;
 
-export function SaleDetailModal({ saleId, restaurantId, storeName, storeAddress, onClose }: Props) {
+export function SaleDetailModal({ saleId, storeId, storeName, storeAddress, onClose }: Props) {
     const [sale, setSale] = useState<SaleDetail | null>(null);
     const [tab, setTab] = useState<Tab>('items');
 
     useEffect(() => {
         setSale(null);
-        SalesAPI.get(saleId, restaurantId).then(setSale).catch((e) => { toast.error(handleApiError(e)); onClose(); });
+        SalesAPI.get(saleId, storeId).then(setSale).catch((e) => { toast.error(handleApiError(e)); onClose(); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [saleId, restaurantId]);
+    }, [saleId, storeId]);
 
     const tabs: { id: Tab; label: string }[] = [
         { id: 'items', label: 'Items' }, { id: 'payments', label: 'Payments' },

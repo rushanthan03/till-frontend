@@ -25,12 +25,12 @@ export interface SaleListResponse {
 const unwrap = <T>(request: Promise<unknown>) => request as Promise<T>;
 
 export const SalesAPI = {
-    create: (restaurantId: string | undefined, body: CreateSaleInput) =>
-        unwrap<Sale>(axiosClient.post('/api/sales', body, { params: { restaurantId } })),
-    list: (restaurantId: string | undefined, params: SaleListParams = {}) =>
-        unwrap<SaleListResponse>(axiosClient.get('/api/sales', { params: { restaurantId, ...params } })),
-    get: (id: string, restaurantId?: string) =>
-        unwrap<SaleDetail>(axiosClient.get(`/api/sales/${id}`, { params: { restaurantId } })),
-    summary: (restaurantId: string | undefined, range: { from?: string; to?: string; shiftId?: string } = {}) =>
-        unwrap<SalesSummary>(axiosClient.get('/api/sales/summary', { params: { restaurantId, ...range } })),
+    create: (storeId: string | undefined, body: CreateSaleInput) =>
+        unwrap<Sale>(axiosClient.post('/api/sales', body, { params: { storeId } })),
+    list: (storeId: string | undefined, params: SaleListParams = {}) =>
+        unwrap<SaleListResponse>(axiosClient.get('/api/sales', { params: { storeId, ...params } })),
+    get: (id: string, storeId?: string) =>
+        unwrap<SaleDetail>(axiosClient.get(`/api/sales/${id}`, { params: { storeId } })),
+    summary: (storeId: string | undefined, range: { from?: string; to?: string; shiftId?: string } = {}) =>
+        unwrap<SalesSummary>(axiosClient.get('/api/sales/summary', { params: { storeId, ...range } })),
 };

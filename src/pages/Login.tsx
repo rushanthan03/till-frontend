@@ -33,7 +33,7 @@ export const Login = () => {
           {lastLogo ? (
             <img src={lastLogo} className="w-24 h-24 object-cover mx-auto rounded-2xl shadow-xs" alt="Store logo" />
           ) : (
-            <img src={logo} className="w-24 h-24 object-cover mx-auto rounded-2xl shadow-md border border-slate-700/20" alt="DineFlow Till logo" />
+            <img src={logo} className="w-24 h-24 object-cover mx-auto rounded-2xl shadow-md border border-slate-700/20" alt="Supermarket Till logo" />
           )}
         </div>
 

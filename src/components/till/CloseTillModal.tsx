@@ -20,7 +20,7 @@ const DENOMINATIONS = [
 type Step = 'check' | 'count' | 'result' | 'done';
 
 interface Props {
-    restaurantId: string;
+    storeId: string;
     storeName: string;
     heldCount: number;
     basketHasItems: boolean;
@@ -33,7 +33,7 @@ interface Props {
  * Close till wizard. The count is BLIND: the expected cash stays hidden until the
  * cashier has submitted what they counted.
  */
-export function CloseTillModal({ restaurantId, storeName, heldCount, basketHasItems, onClosed, onCancel }: Props) {
+export function CloseTillModal({ storeId, storeName, heldCount, basketHasItems, onClosed, onCancel }: Props) {
     const [step, setStep] = useState<Step>('check');
     const [counts, setCounts] = useState<Record<string, string>>({});
     const [totalOverride, setTotalOverride] = useState('');
@@ -50,7 +50,7 @@ export function CloseTillModal({ restaurantId, storeName, heldCount, basketHasIt
     const submitCount = async () => {
         setBusy(true);
         try {
-            setResult(await ShiftsAPI.count(restaurantId, counted));
+            setResult(await ShiftsAPI.count(storeId, counted));
             setStep('result');
         } catch (e) { toast.error(handleApiError(e)); } finally { setBusy(false); }
     };
@@ -59,7 +59,7 @@ export function CloseTillModal({ restaurantId, storeName, heldCount, basketHasIt
         if (!result) return;
         setBusy(true);
         try {
-            setClosedShift(await ShiftsAPI.close(restaurantId, { countedCash: result.countedCash, note: note.trim() || undefined }));
+            setClosedShift(await ShiftsAPI.close(storeId, { countedCash: result.countedCash, note: note.trim() || undefined }));
             setStep('done');
         } catch (e) { toast.error(handleApiError(e)); } finally { setBusy(false); }
     };

@@ -2,7 +2,7 @@ export type ProductUnitType = 'each' | 'weight';
 
 export interface Product {
     id: string;
-    restaurantId: string;
+    storeId: string;
     name: string;
     barcode: string;
     sku: string | null;
@@ -28,7 +28,7 @@ export type ProductInput = Partial<
 > & Pick<Product, 'name' | 'barcode' | 'department' | 'price'>;
 
 export interface ProductListParams {
-    restaurantId?: string;
+    storeId?: string;
     search?: string;
     department?: string;
     status?: 'active' | 'inactive' | 'all';

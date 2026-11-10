@@ -17,7 +17,7 @@ const timeFmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: '2
 
 export const ShiftHistory = () => {
     const { user } = useAuth();
-    const restaurantId = localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
+    const storeId = localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
     const storeName = user?.restaurant?.name || 'Store';
 
     const [preset, setPreset] = useState<Preset>('7d');
@@ -43,14 +43,14 @@ export const ShiftHistory = () => {
     }, [cashierInput]);
 
     const load = useCallback(async () => {
-        if (!restaurantId) return;
+        if (!storeId) return;
         const mine = ++requestId.current;
         setLoading(true);
         try {
             const filters = { ...rangeFor(preset, customFrom, customTo), cashier: cashier || undefined, status: status || undefined, differenceOnly };
             const [list, sum] = await Promise.all([
-                ShiftsAPI.list(restaurantId, { ...filters, page, limit }),
-                ShiftsAPI.summary(restaurantId, filters),
+                ShiftsAPI.list(storeId, { ...filters, page, limit }),
+                ShiftsAPI.summary(storeId, filters),
             ]);
             if (mine !== requestId.current) return;
             setShifts(list.data); setTotal(list.total); setSummary(sum);
@@ -59,14 +59,14 @@ export const ShiftHistory = () => {
         } finally {
             if (mine === requestId.current) setLoading(false);
         }
-    }, [restaurantId, preset, customFrom, customTo, cashier, status, differenceOnly, page, limit]);
+    }, [storeId, preset, customFrom, customTo, cashier, status, differenceOnly, page, limit]);
 
     useEffect(() => { load(); }, [load]);
 
     const hasFilters = !!(cashierInput || status || differenceOnly || preset !== '7d');
     const resetFilters = () => { setCashierInput(''); setStatus(''); setDifferenceOnly(false); setPreset('7d'); setCustomFrom(''); setCustomTo(''); setPage(1); };
 
-    if (!restaurantId) {
+    if (!storeId) {
         return (
             <div className="bg-white rounded-xl border border-gray-100 p-10 text-center text-gray-600">
                 <Clock className="w-10 h-10 mx-auto mb-3 text-gray-400" />
@@ -162,7 +162,7 @@ export const ShiftHistory = () => {
                     handleChangePage={(_, p) => setPage(p + 1)} handleChangeRowsPerPage={(e) => { setLimit(Number(e.target.value)); setPage(1); }} />
             </div>
 
-            {selectedId && <ShiftDetailModal shiftId={selectedId} restaurantId={restaurantId} storeName={storeName} onClose={() => setSelectedId(null)} />}
+            {selectedId && <ShiftDetailModal shiftId={selectedId} storeId={storeId} storeName={storeName} onClose={() => setSelectedId(null)} />}
         </div>
     );
 };

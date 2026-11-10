@@ -1,6 +1,6 @@
 export interface Shift {
     id: string;
-    restaurantId: string;
+    storeId: string;
     userId: string;
     cashierName: string;
     status: 'open' | 'closed';

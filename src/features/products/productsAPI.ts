@@ -5,21 +5,21 @@ import { DepartmentCount, Product, ProductInput, ProductListParams, ProductListR
 // promises resolve to the payload itself. `unwrap` fixes the typing to match.
 const unwrap = <T>(request: Promise<unknown>) => request as Promise<T>;
 
-// Products are scoped to a store (restaurantId). Store users are scoped by their
-// token; admins pass restaurantId explicitly.
+// Products are scoped to a store (storeId). Store users are scoped by their
+// token; admins pass storeId explicitly.
 export const ProductsAPI = {
     list: (params: ProductListParams) =>
         unwrap<ProductListResponse>(axiosClient.get('/api/products', { params: { ...params, lowStock: params.lowStock ? 'true' : undefined } })),
-    departments: (restaurantId?: string) =>
-        unwrap<DepartmentCount[]>(axiosClient.get('/api/products/departments', { params: { restaurantId } })),
-    byBarcode: (barcode: string, restaurantId?: string) =>
-        unwrap<Product>(axiosClient.get(`/api/products/barcode/${encodeURIComponent(barcode)}`, { params: { restaurantId } })),
-    create: (restaurantId: string | undefined, body: ProductInput) =>
-        unwrap<Product>(axiosClient.post('/api/products', body, { params: { restaurantId } })),
-    update: (id: string, restaurantId: string | undefined, body: Partial<ProductInput>) =>
-        unwrap<Product>(axiosClient.patch(`/api/products/${id}`, body, { params: { restaurantId } })),
-    archive: (id: string, restaurantId?: string) =>
-        unwrap<Product>(axiosClient.delete(`/api/products/${id}`, { params: { restaurantId } })),
-    seedDemo: (restaurantId?: string) =>
-        unwrap<{ created: number; skipped: number }>(axiosClient.post('/api/products/seed-demo', null, { params: { restaurantId } })),
+    departments: (storeId?: string) =>
+        unwrap<DepartmentCount[]>(axiosClient.get('/api/products/departments', { params: { storeId } })),
+    byBarcode: (barcode: string, storeId?: string) =>
+        unwrap<Product>(axiosClient.get(`/api/products/barcode/${encodeURIComponent(barcode)}`, { params: { storeId } })),
+    create: (storeId: string | undefined, body: ProductInput) =>
+        unwrap<Product>(axiosClient.post('/api/products', body, { params: { storeId } })),
+    update: (id: string, storeId: string | undefined, body: Partial<ProductInput>) =>
+        unwrap<Product>(axiosClient.patch(`/api/products/${id}`, body, { params: { storeId } })),
+    archive: (id: string, storeId?: string) =>
+        unwrap<Product>(axiosClient.delete(`/api/products/${id}`, { params: { storeId } })),
+    seedDemo: (storeId?: string) =>
+        unwrap<{ created: number; skipped: number }>(axiosClient.post('/api/products/seed-demo', null, { params: { storeId } })),
 };

@@ -28,7 +28,7 @@ export interface SalePayment {
 
 export interface Sale {
     id: string;
-    restaurantId: string;
+    storeId: string;
     receiptNumber: string;
     cashierName: string | null;
     status: 'completed' | 'partially_refunded' | 'refunded' | 'voided';

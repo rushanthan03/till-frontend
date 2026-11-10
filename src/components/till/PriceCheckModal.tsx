@@ -8,12 +8,12 @@ import { ProductsAPI } from '../../features/products/productsAPI';
 import type { Product } from '../../features/products/types';
 
 interface Props {
-    restaurantId: string;
+    storeId: string;
     onAdd: (product: Product) => void;
     onClose: () => void;
 }
 
-export function PriceCheckModal({ restaurantId, onAdd, onClose }: Props) {
+export function PriceCheckModal({ storeId, onAdd, onClose }: Props) {
     const [code, setCode] = useState('');
     const [product, setProduct] = useState<Product | null>(null);
     const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export function PriceCheckModal({ restaurantId, onAdd, onClose }: Props) {
         if (!code.trim()) return;
         setBusy(true);
         try {
-            setProduct(await ProductsAPI.byBarcode(code.trim(), restaurantId));
+            setProduct(await ProductsAPI.byBarcode(code.trim(), storeId));
         } catch (error) {
             setProduct(null);
             toast.error(handleApiError(error));

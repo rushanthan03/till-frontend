@@ -83,7 +83,7 @@ export const NotFound: FC = () => {
                 {/* Brand Footnote */}
                 <div className="mt-20 opacity-30">
                     <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-xs">
-                        DineFlow Till
+                        Supermarket Till
                     </p>
                 </div>
             </div>

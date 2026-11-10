@@ -35,7 +35,7 @@ export const SuperAdminDashboard = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black text-gray-900">Platform overview</h1>
-        <p className="text-sm text-gray-500">Supermarket tenants and their stores across DineFlow Till</p>
+        <p className="text-sm text-gray-500">Supermarket tenants and their stores across Supermarket Till</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card icon={Building2} label="Tenants" value={tenants.total || tenants.data.length} tone="bg-blue-50 text-blue-600" />

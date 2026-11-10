@@ -191,7 +191,7 @@ export const Layout: FC = () => {
                     <p className="text-sm font-black text-gray-900 leading-tight">{currentStore?.name || user?.restaurant?.name || 'Store'}</p>
                   )}
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {isMultiStoreAdmin ? 'Store admin' : 'DineFlow Till'}
+                    {isMultiStoreAdmin ? 'Store admin' : 'Supermarket Till'}
                   </p>
                 </div>
               </div>

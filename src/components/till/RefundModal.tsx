@@ -29,12 +29,12 @@ const estimate = (i: SaleItem, qty: number) =>
     qty === remainingOf(i) ? round2(i.lineTotal - i.refundedAmount) : calcLine(i.unitPrice, qty, i.vatRate).lineTotal;
 
 interface Props {
-    restaurantId: string;
+    storeId: string;
     storeName: string;
     onClose: () => void;
 }
 
-export function RefundModal({ restaurantId, storeName, onClose }: Props) {
+export function RefundModal({ storeId, storeName, onClose }: Props) {
     const [step, setStep] = useState<Step>('find');
     const [query, setQuery] = useState('');
     const [sales, setSales] = useState<Sale[]>([]);
@@ -51,7 +51,7 @@ export function RefundModal({ restaurantId, storeName, onClose }: Props) {
     const search = async (receiptNumber?: string) => {
         setLoading(true);
         try {
-            const r = await SalesAPI.list(restaurantId, { receiptNumber: receiptNumber || undefined, limit: 10 });
+            const r = await SalesAPI.list(storeId, { receiptNumber: receiptNumber || undefined, limit: 10 });
             setSales(r.data);
         } catch (e) { toast.error(handleApiError(e)); } finally { setLoading(false); }
     };
@@ -61,7 +61,7 @@ export function RefundModal({ restaurantId, storeName, onClose }: Props) {
     const pick = async (s: Sale) => {
         setLoading(true);
         try {
-            const full = await SalesAPI.get(s.id, restaurantId);
+            const full = await SalesAPI.get(s.id, storeId);
             if (full.status === 'refunded') { toast.info('This sale has already been fully refunded'); return; }
             setSale(full);
             setQty({}); setDisp({});
@@ -89,7 +89,7 @@ export function RefundModal({ restaurantId, storeName, onClose }: Props) {
         if (!sale) return;
         setBusy(true);
         try {
-            const done = await RefundsAPI.create(restaurantId, {
+            const done = await RefundsAPI.create(storeId, {
                 saleId: sale.id,
                 items: selected.map(l => ({ saleItemId: l.item.id, quantity: l.q, disposition: disp[l.item.id] ?? 'restock' })),
                 reason,

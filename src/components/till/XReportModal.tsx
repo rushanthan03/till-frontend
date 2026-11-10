@@ -10,19 +10,19 @@ import { ShiftsAPI } from '../../features/shifts/shiftsAPI';
 import type { XReport } from '../../features/shifts/types';
 
 interface Props {
-    restaurantId: string;
+    storeId: string;
     storeName: string;
     onClose: () => void;
 }
 
 /** X report: running totals for the open till session. Does not close or reset anything. */
-export function XReportModal({ restaurantId, storeName, onClose }: Props) {
+export function XReportModal({ storeId, storeName, onClose }: Props) {
     const [report, setReport] = useState<XReport | null>(null);
 
     useEffect(() => {
-        ShiftsAPI.xReport(restaurantId).then(setReport).catch((e) => { toast.error(handleApiError(e)); onClose(); });
+        ShiftsAPI.xReport(storeId).then(setReport).catch((e) => { toast.error(handleApiError(e)); onClose(); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [restaurantId]);
+    }, [storeId]);
 
     return (
         <Modal isOpen onClose={onClose} title="X report" description="Running totals for this till session. Nothing is closed." size="sm">

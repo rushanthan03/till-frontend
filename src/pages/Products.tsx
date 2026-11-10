@@ -78,7 +78,7 @@ const toPayload = (f: FormState): ProductInput => ({
 
 export const Products = () => {
     const { user } = useAuth();
-    const restaurantId =
+    const storeId =
         localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -107,12 +107,12 @@ export const Products = () => {
     }, [searchInput]);
 
     const load = useCallback(async () => {
-        if (!restaurantId) return;
+        if (!storeId) return;
         setLoading(true);
         try {
             const [list, deps] = await Promise.all([
-                ProductsAPI.list({ restaurantId, search, department: department || undefined, status, lowStock, page, limit }),
-                ProductsAPI.departments(restaurantId),
+                ProductsAPI.list({ storeId, search, department: department || undefined, status, lowStock, page, limit }),
+                ProductsAPI.departments(storeId),
             ]);
             setProducts(list.data);
             setTotal(list.total);
@@ -122,7 +122,7 @@ export const Products = () => {
         } finally {
             setLoading(false);
         }
-    }, [restaurantId, search, department, status, lowStock, page, limit]);
+    }, [storeId, search, department, status, lowStock, page, limit]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -150,8 +150,8 @@ export const Products = () => {
         setSaving(true);
         try {
             const payload = toPayload(form);
-            if (editing) await ProductsAPI.update(editing.id, restaurantId, payload);
-            else await ProductsAPI.create(restaurantId, payload);
+            if (editing) await ProductsAPI.update(editing.id, storeId, payload);
+            else await ProductsAPI.create(storeId, payload);
             toast.success(editing ? 'Product updated' : 'Product created');
             setIsFormOpen(false);
             load();
@@ -165,7 +165,7 @@ export const Products = () => {
     const handleArchive = async () => {
         if (!archiveTarget) return;
         try {
-            await ProductsAPI.archive(archiveTarget.id, restaurantId);
+            await ProductsAPI.archive(archiveTarget.id, storeId);
             toast.success(`${archiveTarget.name} archived`);
             setArchiveTarget(null);
             load();
@@ -176,7 +176,7 @@ export const Products = () => {
 
     const handleSeed = async () => {
         try {
-            const res = await ProductsAPI.seedDemo(restaurantId);
+            const res = await ProductsAPI.seedDemo(storeId);
             toast.success(`Loaded ${res.created} demo products${res.skipped ? ` (${res.skipped} already existed)` : ''}`);
             load();
         } catch (error) {
@@ -184,7 +184,7 @@ export const Products = () => {
         }
     };
 
-    if (!restaurantId) {
+    if (!storeId) {
         return (
             <div className="bg-white rounded-xl border border-gray-100 p-10 text-center text-gray-600">
                 <Package className="w-10 h-10 mx-auto mb-3 text-gray-400" />
