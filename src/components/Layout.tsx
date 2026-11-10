@@ -14,6 +14,7 @@ import {
   History,
   Clock,
   FileText,
+  Boxes,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../utils/constants';
@@ -31,6 +32,7 @@ const menuItems: SideMenuListType[] = [
   { id: RouteLinks.SHIFTS, label: 'Till sessions', icon: Clock },
   { id: RouteLinks.DAY_REPORT, label: 'Day end report', icon: FileText },
   { id: RouteLinks.PRODUCTS, label: 'Products', icon: Package },
+  { id: RouteLinks.STOCK, label: 'Stock', icon: Boxes },
   { id: RouteLinks.USERS, label: 'Staff', icon: Users },
   { id: RouteLinks.SETTINGS, label: 'Settings', icon: Settings },
 ];
@@ -143,7 +145,7 @@ export const Layout: FC = () => {
   const operationItems = visibleItems.filter(item =>
     [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT].includes(item.id as RouteLinks));
   const managementItems = visibleItems.filter(item =>
-    [RouteLinks.PRODUCTS, RouteLinks.USERS].includes(item.id as RouteLinks));
+    [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.USERS].includes(item.id as RouteLinks));
 
   const handleLogout = () => {
     logout();

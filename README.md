@@ -39,6 +39,7 @@ Use the users created by the backend (see its README). With the demo data loaded
 5. Discounts and price overrides: select a basket line, press **Discount**. Cashiers need a manager to type their PIN (demo managers: `2580`); managers and admins apply it themselves. Every discount is stored with its reason and approver.
 6. **Cash** button: paid in, paid out (cashiers need a manager PIN), safe drop and no sale, each with a reason. They count towards the expected cash at close and appear on the X and Z reports.
 7. Managers: **Day end report** shows all sessions of a day with combined sales, tenders, cash movements and cash difference.
+8. Managers: **Stock** has an overview (low/out/negative, value), **Receive stock** (deliveries, updates cost), **Adjust / waste** (waste, damaged, expired, corrections), **Stocktake** (count a department, differences are corrected) and **History** (every change, including sales and refunds).
 
 ## Scripts
 | Command | What it does |

@@ -17,6 +17,7 @@ import { Till } from "../pages/Till";
 import { SalesHistory } from "../pages/SalesHistory";
 import { ShiftHistory } from "../pages/ShiftHistory";
 import { DayReportPage } from "../pages/DayReport";
+import { Stock } from "../pages/Stock";
 
 const { SUPER_ADMIN, TENANT_ADMIN, MANAGER, CASHIER } = UserRole;
 
@@ -49,6 +50,7 @@ const WebRouter: FC = () => {
                 <Route path={RouteLinks.SALES} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <SalesHistory />)} />
                 <Route path={RouteLinks.SHIFTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <ShiftHistory />)} />
                 <Route path={RouteLinks.DAY_REPORT} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <DayReportPage />)} />
+                <Route path={RouteLinks.STOCK} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <Stock />)} />
                 <Route path={RouteLinks.PRODUCTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <Products />)} />
 
                 {/* Administration */}
