@@ -4,7 +4,7 @@ import { Modal } from '../Modal';
 import { Button } from '../Button';
 import { money } from '../../utils/money';
 import { handleApiError } from '../../api/handleApiError';
-import { ProductsAPI } from '../../features/products/productsAPI';
+import { lookupBarcode } from '../../offline/catalogue';
 import type { Product } from '../../features/products/types';
 
 interface Props {
@@ -23,7 +23,7 @@ export function PriceCheckModal({ storeId, onAdd, onClose }: Props) {
         if (!code.trim()) return;
         setBusy(true);
         try {
-            setProduct(await ProductsAPI.byBarcode(code.trim(), storeId));
+            setProduct(await lookupBarcode(storeId, code.trim()));
         } catch (error) {
             setProduct(null);
             toast.error(handleApiError(error));

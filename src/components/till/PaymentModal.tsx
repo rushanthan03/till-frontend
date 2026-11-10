@@ -5,8 +5,11 @@ import { Button } from '../Button';
 import { money } from '../../utils/money';
 import { round2 } from '../../utils/basket';
 import type { PaymentInput } from '../../features/sales/types';
+import { PaymentsAPI } from '../../features/payments/paymentsAPI';
+import { newClientRef } from '../../offline/outbox';
+import { handleApiError } from '../../api/handleApiError';
 
-type CardState = 'idle' | 'connecting' | 'present' | 'processing' | 'approved' | 'declined';
+type CardState = 'idle' | 'connecting' | 'present' | 'processing' | 'approved' | 'declined' | 'error';
 
 const CARD_STEPS: Record<CardState, string> = {
     idle: 'Ready',
@@ -15,11 +18,15 @@ const CARD_STEPS: Record<CardState, string> = {
     processing: 'Processing…',
     approved: 'Approved',
     declined: 'Declined',
+    error: 'Card terminal problem',
 };
 
 interface Props {
+    storeId: string;
     total: number;
     isSubmitting: boolean;
+    /** False when the till can't reach the server: card payments are switched off. */
+    cardAvailable?: boolean;
     onClose: () => void;
     /** Called once the full amount is covered. */
     onComplete: (payments: PaymentInput[]) => void;
@@ -29,15 +36,21 @@ const QUICK_CASH = [5, 10, 20, 50];
 
 /**
  * Cash + card payment with split-tender support.
- * The card terminal is SIMULATED for the demo; a real terminal SDK replaces `runCardSimulation`.
+ * Card payments go to the card terminal through the server (simulated in the demo; a real provider plugs in on the backend).
  */
-export function PaymentModal({ total, isSubmitting, onClose, onComplete }: Props) {
+export function PaymentModal({ storeId, total, isSubmitting, cardAvailable = true, onClose, onComplete }: Props) {
     const [payments, setPayments] = useState<PaymentInput[]>([]);
     const [mode, setMode] = useState<'cash' | 'card'>('cash');
     const [cashInput, setCashInput] = useState('');
     const [cardAmountInput, setCardAmountInput] = useState('');
     const [cardState, setCardState] = useState<CardState>('idle');
     const [declineNext, setDeclineNext] = useState(false);
+    const [cardMessage, setCardMessage] = useState('');
+    const [provider, setProvider] = useState<string | null>(null);
+    // One id per card attempt: if the connection drops mid-charge, trying again reuses it and can never charge twice.
+    const attemptRef = useRef<{ ref: string; amount: number } | null>(null);
+
+    useEffect(() => { PaymentsAPI.status(storeId).then(s => setProvider(s.provider)).catch(() => undefined); }, [storeId]);
     const timers = useRef<number[]>([]);
 
     const paid = round2(payments.reduce((a, p) => a + p.amount, 0));
@@ -54,22 +67,33 @@ export function PaymentModal({ total, isSubmitting, onClose, onComplete }: Props
         setCashInput('');
     };
 
-    const runCardSimulation = () => {
+    const runCard = async () => {
         const amount = cardAmountInput === '' ? remaining : round2(Number(cardAmountInput));
         if (!(amount > 0) || amount > remaining) return;
-        const steps: [CardState, number][] = [['connecting', 0], ['present', 900], ['processing', 2200]];
-        steps.forEach(([state, delay]) => timers.current.push(window.setTimeout(() => setCardState(state), delay)));
-        timers.current.push(window.setTimeout(() => {
-            if (declineNext) {
+        setCardMessage('');
+        setCardState('connecting');
+        const showPresent = window.setTimeout(() => setCardState('present'), 500);
+        timers.current.push(showPresent);
+        if (!attemptRef.current || attemptRef.current.amount !== amount) attemptRef.current = { ref: newClientRef(), amount };
+        try {
+            const r = await PaymentsAPI.charge(storeId, { amount, clientRef: attemptRef.current.ref, simulate: declineNext ? 'decline' : undefined });
+            attemptRef.current = null; // finished: the next attempt is a new charge
+            clearTimeout(showPresent);
+            if (r.status === 'approved') {
+                setCardState('approved');
+                setCardMessage(r.last4 ? `${r.scheme ?? 'Card'} ending ${r.last4}` : '');
+                setPayments(prev => [...prev, { method: 'card', amount, reference: r.reference }]);
+                setCardAmountInput('');
+            } else {
                 setCardState('declined');
+                setCardMessage(r.message ?? 'Card declined');
                 setDeclineNext(false);
-                return;
             }
-            setCardState('approved');
-            const reference = `SIM-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-            setPayments(prev => [...prev, { method: 'card', amount, reference }]);
-            setCardAmountInput('');
-        }, 3400));
+        } catch (e) {
+            clearTimeout(showPresent);
+            setCardState('error'); // attemptRef is kept: "Try again" asks the terminal for the same charge's result
+            setCardMessage(handleApiError(e));
+        }
     };
 
     const resetCard = () => {
@@ -91,7 +115,7 @@ export function PaymentModal({ total, isSubmitting, onClose, onComplete }: Props
                             className={`flex flex-col items-center gap-1 rounded-xl border-2 p-4 font-semibold transition ${mode === 'cash' ? 'border-green-600 bg-green-50 text-green-800' : 'border-gray-200 text-gray-700 hover:bg-gray-50'} disabled:opacity-50`}>
                             <Banknote className="w-7 h-7" />Cash
                         </button>
-                        <button type="button" onClick={() => setMode('card')} disabled={cardBusy || complete}
+                        <button type="button" onClick={() => setMode('card')} disabled={cardBusy || complete || !cardAvailable} title={!cardAvailable ? 'Card payments need a connection' : undefined}
                             className={`flex flex-col items-center gap-1 rounded-xl border-2 p-4 font-semibold transition ${mode === 'card' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-700 hover:bg-gray-50'} disabled:opacity-50`}>
                             <CreditCard className="w-7 h-7" />Card
                         </button>
@@ -121,18 +145,19 @@ export function PaymentModal({ total, isSubmitting, onClose, onComplete }: Props
                                 {cardState === 'approved' && <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-600" />}
                                 {cardState === 'declined' && <XCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />}
                                 <div className="font-semibold text-gray-900">{CARD_STEPS[cardState]}</div>
-                                <div className="text-xs text-gray-500 mt-1">Simulated terminal (demo)</div>
+                                {cardMessage && <div className={`text-sm mt-1 ${cardState === 'approved' ? 'text-green-800' : 'text-red-700'}`}>{cardMessage}</div>}
+                                {provider === 'simulated' && <div className="text-xs text-gray-500 mt-1">Simulated terminal (demo)</div>}
                             </div>
                             <label className="block text-sm font-medium text-gray-700" htmlFor="card-amount">Card amount (default: remaining)</label>
                             <input id="card-amount" type="number" min="0" step="0.01" value={cardAmountInput} placeholder={remaining.toFixed(2)} disabled={cardBusy}
                                 onChange={(e) => setCardAmountInput(e.target.value)}
                                 className="w-full px-4 py-3 text-xl font-bold border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-600" />
-                            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                            {provider === 'simulated' && <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                                 <input type="checkbox" checked={declineNext} onChange={(e) => setDeclineNext(e.target.checked)} disabled={cardBusy} className="w-4 h-4" />
                                 Demo: decline the next card
-                            </label>
-                            <Button className="w-full" size="lg" onClick={() => { resetCard(); runCardSimulation(); }} disabled={cardBusy}>
-                                {cardState === 'declined' ? 'Try card again' : 'Take card payment'}
+                            </label>}
+                            <Button className="w-full" size="lg" onClick={() => { resetCard(); void runCard(); }} disabled={cardBusy}>
+                                {cardState === 'declined' || cardState === 'error' ? 'Try card again' : 'Take card payment'}
                             </Button>
                         </div>
                     )}

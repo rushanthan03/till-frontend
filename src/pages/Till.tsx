@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, X as XIcon } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, Clock, X as XIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -13,9 +13,16 @@ import { OpenTillScreen } from '../components/till/OpenTillScreen';
 import { XReportModal } from '../components/till/XReportModal';
 import { CloseTillModal } from '../components/till/CloseTillModal';
 import { RefundModal } from '../components/till/RefundModal';
+import { hardware, isDesktop } from '../hardware/hardware';
+import { cacheShift, cachedShift, currentPromos, departmentProducts, listDepartments, lookupBarcode, searchProducts, syncCatalogue } from '../offline/catalogue';
+import { isNetworkError, isOnline, markOffline, useConnectivity } from '../offline/connectivity';
+import { OutboxEntry, enqueue, listOutbox, newClientRef, nextProvisionalNumber, onOutboxChange, syncOutbox } from '../offline/outbox';
+import { AttendanceAPI, TimeEntry } from '../features/attendance/attendanceAPI';
+import { OfflineBanner } from '../components/till/OfflineBanner';
+import { SyncProblemsModal } from '../components/till/SyncProblemsModal';
+import { buildReceiptPayload } from '../utils/receiptPayload';
 import { CustomerModal } from '../components/till/CustomerModal';
 import type { Customer } from '../features/customers/customersAPI';
-import { PromotionsAPI } from '../features/promotions/promotionsAPI';
 import type { Promotion } from '../features/promotions/types';
 import { CashMovementModal } from '../components/till/CashMovementModal';
 import { DiscountModal } from '../components/till/DiscountModal';
@@ -24,8 +31,7 @@ import { Approval } from '../features/approvals/approvalsAPI';
 import { useAuth } from '../hooks/useAuth';
 import { handleApiError } from '../api/handleApiError';
 import { money } from '../utils/money';
-import { BasketLine, LineAdjustment, addToBasket, basketTotals, lineAmounts, hasAdjustments, highestAge, needsAgeCheck, round3, unitPriceOf } from '../utils/basket';
-import { ProductsAPI } from '../features/products/productsAPI';
+import { BasketLine, LineAdjustment, addToBasket, basketTotals, lineAmounts, hasAdjustments, highestAge, needsAgeCheck, round2, round3, unitPriceOf } from '../utils/basket';
 import { SalesAPI } from '../features/sales/salesAPI';
 import { ShiftsAPI } from '../features/shifts/shiftsAPI';
 import { UserRole } from '../utils/constants';
@@ -72,6 +78,28 @@ export const Till = () => {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [showCustomer, setShowCustomer] = useState(false);
 
+    // clock in / out
+    const [clock, setClock] = useState<TimeEntry | null>(null);
+    useEffect(() => {
+        if (!storeId || !isOnline()) return;
+        const auto = (() => { try { return sessionStorage.getItem('till.clockInOnLogin') === '1'; } catch { return false; } })();
+        try { sessionStorage.removeItem('till.clockInOnLogin'); } catch { /* ignore */ }
+        (auto ? AttendanceAPI.clockIn(storeId) : AttendanceAPI.status(storeId)).then(setClock).catch(() => undefined);
+    }, [storeId]);
+    const toggleClock = async () => {
+        try {
+            if (clock) { await AttendanceAPI.clockOut(storeId); setClock(null); toast.success('Clocked out'); }
+            else { setClock(await AttendanceAPI.clockIn(storeId)); toast.success('Clocked in'); }
+        } catch (e) { toast.error(handleApiError(e)); }
+    };
+
+    // offline mode: sales made while the server can't be reached wait in the outbox and sync later
+    const { online, forced } = useConnectivity();
+    const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
+    const [showSyncProblems, setShowSyncProblems] = useState(false);
+    const pendingCount = outbox.filter(e => e.status === 'pending').length;
+    const failedCount = outbox.filter(e => e.status === 'failed').length;
+
     // modal state
     const [ageCheck, setAgeCheck] = useState<{ product: Product; qty: number } | null>(null);
     const [weighing, setWeighing] = useState<Product | null>(null);
@@ -81,6 +109,7 @@ export const Till = () => {
     const [confirmVoidSale, setConfirmVoidSale] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+    const [completedOffline, setCompletedOffline] = useState(false);
     // till session (shift): undefined = still loading, null = till is closed
     const [shift, setShift] = useState<Shift | null | undefined>(undefined);
     const [openingTill, setOpeningTill] = useState(false);
@@ -97,21 +126,49 @@ export const Till = () => {
 
     const inputRef = useRef<HTMLInputElement>(null);
     const totals = useMemo(() => basketTotals(basket, promos), [basket, promos]);
-    const modalOpen = !!(showCustomer || showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
+    const modalOpen = !!(showSyncProblems || showCustomer || showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
 
     // Keep the scan box focused so a barcode scanner (which "types" the code + Enter) always lands in it.
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
 
     const loadShift = useCallback(() => {
         if (!storeId) return;
-        ShiftsAPI.current(storeId).then(setShift).catch((e) => { setShift(null); toast.error(handleApiError(e)); });
-    }, [storeId]);
-    useEffect(() => { loadShift(); }, [loadShift]);
+        const fromCache = async () => { const s = user?.id ? await cachedShift(storeId, user.id) : null; setShift(s); };
+        if (!online) { void fromCache(); return; }
+        ShiftsAPI.current(storeId)
+            .then((s) => { setShift(s); if (user?.id) void cacheShift(storeId, user.id, s); })
+            .catch((e) => {
+                // server unreachable: carry on with the till session we last knew about
+                if (isNetworkError(e)) { markOffline(); void fromCache(); return; }
+                setShift(null); toast.error(handleApiError(e));
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storeId, user?.id]);
+    useEffect(() => { loadShift(); }, [loadShift, online]);
+
+    // keep a local copy of the catalogue so the till can keep selling when the server can't be reached
+    useEffect(() => {
+        if (storeId && online) syncCatalogue(storeId).then((n) => { if (n) currentPromos(storeId).then(setPromos).catch(() => undefined); }).catch(() => undefined);
+    }, [storeId, online]);
+
+    const refreshOutbox = useCallback(() => { if (storeId) listOutbox(storeId).then(setOutbox).catch(() => undefined); }, [storeId]);
+    useEffect(() => { refreshOutbox(); return onOutboxChange(refreshOutbox); }, [refreshOutbox]);
+
+    // back online with sales waiting: send them
+    useEffect(() => {
+        if (!storeId || !online || pendingCount === 0) return;
+        syncOutbox(storeId, (body) => SalesAPI.create(storeId, body)).then((r) => {
+            if (r.synced.length) toast.success(`${r.synced.length} offline sale${r.synced.length > 1 ? 's' : ''} synced`);
+            if (r.failed) toast.error(`${r.failed} offline sale${r.failed > 1 ? 's need' : ' needs'} attention`);
+        }).catch(() => undefined);
+    }, [storeId, online, pendingCount]);
 
     const openTill = async (openingFloat: number, note?: string) => {
         setOpeningTill(true);
         try {
-            setShift(await ShiftsAPI.open(storeId, { openingFloat, note }));
+            const opened = await ShiftsAPI.open(storeId, { openingFloat, note });
+            setShift(opened);
+            if (user?.id) void cacheShift(storeId, user.id, opened);
             toast.success('Till opened');
         } catch (error) {
             toast.error(handleApiError(error));
@@ -123,18 +180,18 @@ export const Till = () => {
 
     useEffect(() => {
         if (!storeId) return;
-        ProductsAPI.departments(storeId).then(setDepartments).catch((e) => toast.error(handleApiError(e)));
+        listDepartments(storeId).then(setDepartments).catch((e) => toast.error(handleApiError(e)));
     }, [storeId]);
 
     useEffect(() => {
         if (!storeId) return;
-        PromotionsAPI.current(storeId).then(setPromos).catch(() => setPromos([]));
+        currentPromos(storeId).then(setPromos).catch(() => setPromos([]));
     }, [storeId]);
 
     useEffect(() => {
         if (!storeId || !activeDept) { setDeptProducts([]); return; }
-        ProductsAPI.list({ storeId, department: activeDept, status: 'active', limit: 60 })
-            .then(r => setDeptProducts(r.data))
+        departmentProducts(storeId, activeDept, 60)
+            .then(setDeptProducts)
             .catch((e) => toast.error(handleApiError(e)));
     }, [storeId, activeDept]);
 
@@ -143,8 +200,8 @@ export const Till = () => {
         const term = input.trim();
         if (!storeId || term.length < 2 || /^[\d.]+$/.test(term)) { setResults([]); return; }
         const t = setTimeout(() => {
-            ProductsAPI.list({ storeId, search: term, status: 'active', limit: 8 })
-                .then(r => setResults(r.data))
+            searchProducts(storeId, term, 8)
+                .then(setResults)
                 .catch(() => setResults([]));
         }, 250);
         return () => clearTimeout(t);
@@ -175,7 +232,7 @@ export const Till = () => {
         const hadSeveralMatches = results.length > 1;
         setInput(''); setResults([]);
         try {
-            const product = await ProductsAPI.byBarcode(code, storeId);
+            const product = await lookupBarcode(storeId, code);
             addProduct(product, qty);
         } catch (error) {
             if (hadSeveralMatches) { setInput(code); toast.info('Pick a product from the list'); return; }
@@ -272,6 +329,13 @@ export const Till = () => {
                 await ShiftsAPI.addMovement(storeId, { ...m, approvalToken: token });
                 toast.success(m.type === 'no_sale' ? 'No sale recorded' : 'Cash movement recorded');
                 setShowCash(false);
+                if (m.type === 'no_sale' && isDesktop()) {
+                    const s = await hardware.settings();
+                    if (s?.autoDrawer && s.printMode === 'network') {
+                        const r = await hardware.openDrawer();
+                        if (!r.ok) toast.error(`Drawer: ${r.error}`);
+                    }
+                }
             } catch (error) {
                 toast.error(handleApiError(error));
             } finally {
@@ -296,10 +360,62 @@ export const Till = () => {
         setShowPayment(true);
     };
 
+    /** Desktop app only: print the receipt and pop the drawer for cash. Never blocks or fails the sale. */
+    const autoPrintAndDrawer = async (sale: Sale) => {
+        if (!isDesktop()) return;
+        try {
+            const s = await hardware.settings();
+            if (!s || s.printMode === 'off') return;
+            const cash = sale.payments.some(p => p.method === 'cash');
+            if (s.autoPrint) {
+                const r = await hardware.printReceipt(buildReceiptPayload(sale, storeName, storeAddress), s.autoDrawer && cash);
+                if (!r.ok) toast.error(`Receipt not printed: ${r.error}`);
+            } else if (s.autoDrawer && cash) {
+                const r = await hardware.openDrawer();
+                if (!r.ok) toast.error(`Drawer: ${r.error}`);
+            }
+        } catch { toast.error('Could not reach the printer'); }
+    };
+
+    /** Print button on the sale-complete screen: the real printer when there is one, else the browser dialog. */
+    const printReceipt = async (sale: Sale) => {
+        if (isDesktop()) {
+            const s = await hardware.settings();
+            if (s && s.printMode !== 'off') {
+                const r = await hardware.printReceipt(buildReceiptPayload(sale, storeName, storeAddress), false);
+                if (!r.ok) toast.error(`Receipt not printed: ${r.error}`);
+                return;
+            }
+        }
+        window.print();
+    };
+
+    /** The sale as the till knows it, for a receipt while offline. The server numbers it properly when it syncs. */
+    const provisionalSale = (clientRef: string, receiptNumber: string, payments: PaymentInput[], soldAt: string): Sale => {
+        const lines = basket.map(l => ({ l, a: lineAmounts(l, promos) }));
+        const total = totals.total;
+        return {
+            id: clientRef, storeId, receiptNumber, cashierName: user?.name ?? null, status: 'completed', refundedTotal: 0,
+            total, netTotal: totals.netTotal, vatTotal: totals.vatTotal,
+            changeDue: round2(payments.reduce((a, p) => a + (p.method === 'cash' ? (p.tendered ?? p.amount) - p.amount : 0), 0)),
+            itemCount: totals.itemCount, discountTotal: totals.discountTotal, customerName: customer?.name ?? null, pointsEarned: 0, approvedByName: null,
+            ageVerified, createdAt: soldAt,
+            items: lines.map(({ l, a }, i) => ({
+                id: `${clientRef}-${i}`, productId: l.product.id, name: l.product.name, barcode: l.product.barcode, quantity: l.quantity,
+                unitPrice: unitPriceOf(l), vatRate: l.product.vatRate, lineTotal: a.lineTotal, vatAmount: a.vatAmount, ageRestriction: l.product.ageRestriction,
+                promoDiscount: a.promoDiscount, promotionName: a.promoName, originalUnitPrice: null, adjustmentReason: null,
+                refundedQuantity: 0, refundedAmount: 0, refundedVat: 0,
+            })),
+            payments: payments.map((p, i) => ({ id: `${clientRef}-p${i}`, method: p.method, amount: p.amount, tendered: p.tendered ?? null, reference: p.reference ?? null })),
+        } as Sale;
+    };
+
     const completeSale = async (payments: PaymentInput[]) => {
         setSubmitting(true);
-        try {
-            const sale = await SalesAPI.create(storeId, {
+        const clientRef = newClientRef();
+        const soldAt = new Date().toISOString();
+        const body = {
+                clientRef,
                 items: basket.map(l => ({
                     productId: l.product.id,
                     quantity: l.quantity,
@@ -311,11 +427,30 @@ export const Till = () => {
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
                 customerId: customer?.id,
                 approvalToken: hasAdjustments(basket) && !isManager ? approval?.token : undefined,
-            });
+        };
+        /** Server can't be reached: keep the sale on this till and send it later. */
+        const saveOffline = async () => {
+            if (payments.some(p => p.method === 'card')) { toast.error('Card payments need a connection. Take cash, or wait until the till is back online.'); return; }
+            if (hasAdjustments(basket)) { toast.error('Discounts need manager approval online. Remove the discounts or wait until the till is back online.'); return; }
+            const receipt = nextProvisionalNumber(storeId);
+            await enqueue({ clientRef, storeId, provisionalReceipt: receipt, total: totals.total, createdAt: soldAt, status: 'pending', body: { ...body, soldAt } });
+            const sale = provisionalSale(clientRef, receipt, payments, soldAt);
             setShowPayment(false);
             setCompletedSale(sale);
+            setCompletedOffline(true);
             clearSale();
+            void autoPrintAndDrawer(sale);
+        };
+        try {
+            if (!online) { await saveOffline(); return; }
+            const sale = await SalesAPI.create(storeId, body);
+            setShowPayment(false);
+            setCompletedOffline(false);
+            setCompletedSale(sale);
+            clearSale();
+            void autoPrintAndDrawer(sale);
         } catch (error) {
+            if (isNetworkError(error)) { markOffline(); await saveOffline(); return; } // the same clientRef is reused on sync, so a sale that did reach the server is never doubled
             toast.error(handleApiError(error));
             // e.g. the till session was closed elsewhere: re-check so the screen matches reality
             loadShift();
@@ -357,20 +492,27 @@ export const Till = () => {
                         {pendingQty && (
                             <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold">Next item × {pendingQty}</span>
                         )}
+                        <button type="button" onClick={toggleClock} disabled={!online}
+                            title={clock ? `On the clock since ${new Date(clock.clockedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Clock in'}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border disabled:opacity-40 ${clock ? 'border-green-300 bg-green-50 text-green-800 hover:bg-green-100' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                            <Clock className="w-4 h-4" />{clock ? `Clocked in ${new Date(clock.clockedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Clock in'}
+                        </button>
                         {customer ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
                                 <UserRound className="w-4 h-4" />{customer.name} · {customer.pointsBalance} pts
                                 <button type="button" aria-label="Remove customer" onClick={() => setCustomer(null)} className="ml-1 text-blue-700 hover:text-blue-900"><XIcon className="w-3.5 h-3.5" /></button>
                             </span>
                         ) : (
-                            <button type="button" onClick={() => setShowCustomer(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><UserRound className="w-4 h-4" />Customer</button>
+                            <button type="button" onClick={() => setShowCustomer(true)}  disabled={!online} title={!online ? 'Needs a connection' : undefined} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"><UserRound className="w-4 h-4" />Customer</button>
                         )}
-                        <button type="button" onClick={() => setShowCash(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Wallet className="w-4 h-4" />Cash</button>
-                        <button type="button" onClick={() => setShowXReport(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><BarChart3 className="w-4 h-4" />X report</button>
-                        {canRefund && <button type="button" onClick={() => setShowRefund(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Undo2 className="w-4 h-4" />Refund</button>}
-                        <button type="button" onClick={() => setShowClose(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Lock className="w-4 h-4" />Close till</button>
+                        <button type="button" onClick={() => setShowCash(true)}  disabled={!online} title={!online ? 'Needs a connection' : undefined} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"><Wallet className="w-4 h-4" />Cash</button>
+                        <button type="button" onClick={() => setShowXReport(true)}  disabled={!online} title={!online ? 'Needs a connection' : undefined} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"><BarChart3 className="w-4 h-4" />X report</button>
+                        {canRefund && <button type="button" onClick={() => setShowRefund(true)} disabled={!online} title={!online ? 'Needs a connection' : undefined} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 className="w-4 h-4" />Refund</button>}
+                        <button type="button" onClick={() => setShowClose(true)} disabled={!online || outbox.length > 0} title={!online ? 'Needs a connection' : outbox.length > 0 ? 'Send the offline sales first' : undefined} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"><Lock className="w-4 h-4" />Close till</button>
                     </span>
                 </div>
+
+                <OfflineBanner online={online} forced={forced} pending={pendingCount} failed={failedCount} onShowProblems={() => setShowSyncProblems(true)} />
 
                 <form onSubmit={submitCode} className="relative flex gap-2">
                     <div className="relative flex-1">
@@ -472,7 +614,7 @@ export const Till = () => {
                     <Button variant="outline" onClick={holdSale} disabled={!basket.length}><PauseCircle className="w-4 h-4 mr-1.5" />Hold</Button>
                     <Button variant="outline" onClick={() => setShowHeld(true)}><PlayCircle className="w-4 h-4 mr-1.5" />Recall{held.length ? ` (${held.length})` : ''}</Button>
                     <Button variant="outline" onClick={voidLine} disabled={selected === null}><XCircle className="w-4 h-4 mr-1.5" />Void line</Button>
-                    <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
+                    <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null || !online}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
                     <Button variant="outline" onClick={() => setConfirmVoidSale(true)} disabled={!basket.length}><Trash2 className="w-4 h-4 mr-1.5" />Void sale</Button>
                     <Button variant="outline" onClick={() => setShowPriceCheck(true)}><Tag className="w-4 h-4 mr-1.5" />Price check</Button>
                     <Button size="lg" onClick={startPayment} disabled={!basket.length} className="!text-lg">Pay {basket.length ? money(totals.total) : ''}</Button>
@@ -561,10 +703,11 @@ export const Till = () => {
                     heldCount={held.length}
                     basketHasItems={basket.length > 0}
                     onCancel={() => setShowClose(false)}
-                    onClosed={() => { setShowClose(false); setShift(null); }}
+                    onClosed={() => { setShowClose(false); setShift(null); if (user?.id) void cacheShift(storeId, user.id, null); }}
                 />
             )}
-            {showPayment && <PaymentModal total={totals.total} isSubmitting={submitting} onClose={() => setShowPayment(false)} onComplete={completeSale} />}
+            {showSyncProblems && <SyncProblemsModal entries={outbox} onClose={() => setShowSyncProblems(false)} />}
+            {showPayment && <PaymentModal storeId={storeId} total={totals.total} cardAvailable={online} isSubmitting={submitting} onClose={() => setShowPayment(false)} onComplete={completeSale} />}
             {showHeld && <HeldSalesModal held={held} onRecall={recall} onDelete={deleteHeld} onClose={() => setShowHeld(false)} />}
             {showPriceCheck && <PriceCheckModal storeId={storeId} onAdd={(p) => addProduct(p, 1)} onClose={() => setShowPriceCheck(false)} />}
 
@@ -589,8 +732,9 @@ export const Till = () => {
                                 </div>
                             )}
                             <div className="text-sm text-gray-600">Receipt {completedSale.receiptNumber}</div>
+                            {completedOffline && <div role="status" className="rounded-lg bg-amber-100 text-amber-900 px-3 py-2 text-sm font-medium">Saved offline. It will be sent automatically and get its real receipt number then.</div>}
                             <div className="flex flex-col gap-2 pt-2">
-                                <Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Print receipt</Button>
+                                <Button variant="outline" onClick={() => printReceipt(completedSale)}><Printer className="w-4 h-4 mr-2" />Print receipt</Button>
                                 <Button size="lg" onClick={() => setCompletedSale(null)}>New sale</Button>
                             </div>
                         </div>

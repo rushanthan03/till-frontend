@@ -15,6 +15,7 @@ import {
   Clock,
   FileText,
   Boxes,
+  MonitorSmartphone,
   BarChart3,
   BadgePercent,
   UsersRound,
@@ -39,6 +40,8 @@ const menuItems: SideMenuListType[] = [
   { id: RouteLinks.STOCK, label: 'Stock', icon: Boxes },
   { id: RouteLinks.PROMOTIONS, label: 'Promotions', icon: BadgePercent },
   { id: RouteLinks.CUSTOMERS, label: 'Customers', icon: UsersRound },
+  { id: RouteLinks.ATTENDANCE, label: 'Attendance', icon: Clock },
+  { id: RouteLinks.DEVICE, label: 'Device', icon: MonitorSmartphone },
   { id: RouteLinks.USERS, label: 'Staff', icon: Users },
   { id: RouteLinks.SETTINGS, label: 'Settings', icon: Settings },
 ];
@@ -151,7 +154,7 @@ export const Layout: FC = () => {
   const operationItems = visibleItems.filter(item =>
     [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT, RouteLinks.REPORTS].includes(item.id as RouteLinks));
   const managementItems = visibleItems.filter(item =>
-    [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.PROMOTIONS, RouteLinks.CUSTOMERS, RouteLinks.USERS].includes(item.id as RouteLinks));
+    [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.PROMOTIONS, RouteLinks.CUSTOMERS, RouteLinks.ATTENDANCE, RouteLinks.DEVICE, RouteLinks.USERS].includes(item.id as RouteLinks));
 
   const handleLogout = () => {
     logout();

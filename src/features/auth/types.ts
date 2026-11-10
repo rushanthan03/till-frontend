@@ -2,10 +2,11 @@ import { InitialCommonType } from "../../models/BaseType";
 import { Restaurant } from "../stores/types";
 import { Tenant } from "../tenants/types";
 
-export interface AuthCredentials {
-    email: string;
-    password: string;
-}
+export type AuthCredentials =
+    | { email: string; password: string }
+    | { tenantId: string; employeeNumber: string; pin: string };
+
+export const isPinLogin = (c: AuthCredentials): c is { tenantId: string; employeeNumber: string; pin: string } => 'employeeNumber' in c;
 
 export interface AuthResponse {
     user?: AllUserRoleResponse

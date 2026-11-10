@@ -10,6 +10,7 @@ interface AuthContextType {
   updatePrimaryColor: (color: string) => void;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithPin: (tenantId: string, employeeNumber: string, pin: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   updateRestaurantLogo: (logo: string) => void;
@@ -58,6 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     dispatch(loginRequest({ email, password }));
   };
 
+  const loginWithPin = async (tenantId: string, employeeNumber: string, pin: string) => {
+    dispatch(loginRequest({ tenantId, employeeNumber, pin }));
+  };
+
   const logout = () => {
     dispatch({ type: 'LOGOUT' });
     dispatch(logoutRequest());
@@ -77,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, primaryColor, updatePrimaryColor, updateRestaurantLogo, updateRestaurantName }}>
+    <AuthContext.Provider value={{ user, login, loginWithPin, logout, isLoading, primaryColor, updatePrimaryColor, updateRestaurantLogo, updateRestaurantName }}>
       {children}
     </AuthContext.Provider>
   );

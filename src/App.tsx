@@ -5,10 +5,14 @@ import { muiTheme } from './utils/muiTheme';
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { CustomToastContainer } from './components/CustomToastContainer';
+import { startConnectivityMonitor } from './offline/connectivity';
 
 function App() {
 
   const { user } = useAuth();
+
+  // watch whether the server can be reached, so the till knows when to work offline
+  useEffect(() => { startConnectivityMonitor(); }, []);
 
   // Dynamic favicon & page title updates
   useEffect(() => {

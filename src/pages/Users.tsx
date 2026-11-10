@@ -15,11 +15,13 @@ import { useAuth } from '../hooks/useAuth';
 import Pagination from '../components/Pagination';
 import { hexToRgba } from '../utils';
 import StaffCard from '../components/StaffCard';
+import { StaffTillLoginModal } from '../components/StaffTillLoginModal';
 
 export const Users = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState<UserRole | string>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [tillLoginUser, setTillLoginUser] = useState<AllUserRoleResponse | null>(null);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
     const [userToReset, setUserToReset] = useState<AllUserRoleResponse | null>(null);
@@ -315,7 +317,7 @@ export const Users = () => {
             {filterUserRoleWise.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                     {filterUserRoleWise.map((user) => (
-                        <StaffCard key={user.id} user={user} handleEdit={handleEdit} handleResetPassword={handleResetPassword} handleDelete={handleDelete} />
+                        <StaffCard key={user.id} user={user} handleEdit={handleEdit} handleResetPassword={handleResetPassword} handleDelete={handleDelete} handleTillLogin={setTillLoginUser} />
                     ))}
                 </div>
             ) : (
@@ -343,6 +345,8 @@ export const Users = () => {
                 handleChangePage={handleChangePage}
                 handleChangeRowsPerPage={handleChangeRowsPerPage}
             />
+
+            {tillLoginUser?.id && <StaffTillLoginModal userId={tillLoginUser.id} name={tillLoginUser.name ?? 'staff member'} onClose={() => setTillLoginUser(null)} />}
 
             <Modal
                 isOpen={isModalOpen}

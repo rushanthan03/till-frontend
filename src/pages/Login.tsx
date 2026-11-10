@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { Lock, Mail, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { Lock, Mail, EyeIcon, EyeOffIcon, Hash } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuth } from '../hooks/useAuth';
 import { hexToRgba } from '../utils';
 import logo from '../assets/auvren-logo.png';
 
 export const Login = () => {
-  const { login, isLoading, primaryColor } = useAuth();
+  const { login, loginWithPin, isLoading, primaryColor } = useAuth();
+  // A till remembers its company after the first email sign-in, so staff can then use employee number + PIN.
+  const device = (() => { try { return JSON.parse(localStorage.getItem('till.device') ?? 'null') as { tenantId: string; storeName?: string } | null; } catch { return null; } })();
+  const [mode, setMode] = useState<'email' | 'pin'>(device ? 'pin' : 'email');
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [pin, setPin] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,6 +26,11 @@ export const Login = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }
+  };
+
+  const handlePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (device && employeeNumber && pin.length >= 4) { try { sessionStorage.setItem('till.clockInOnLogin', '1'); } catch { /* ignore */ } await loginWithPin(device.tenantId, employeeNumber, pin); }
   };
 
   const handleRevealPassword = () => setShowPassword((prev) => !prev);
@@ -38,9 +48,40 @@ export const Login = () => {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign In</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign In</h2>
+          <div className="grid grid-cols-2 gap-2 mb-5" role="tablist">
+            {(['pin', 'email'] as const).map(m => (
+              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
+                className={`py-2 rounded-lg border text-sm font-semibold ${mode === m ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                {m === 'pin' ? 'Staff PIN' : 'Email'}
+              </button>
+            ))}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'pin' && (
+            device ? (
+              <form onSubmit={handlePin} className="space-y-4">
+                {device.storeName && <p className="text-sm text-gray-600">{device.storeName}</p>}
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input inputMode="numeric" autoFocus autoComplete="off" value={employeeNumber} aria-label="Employee number" placeholder="Employee number"
+                    onChange={(e) => setEmployeeNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600" />
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input type="password" inputMode="numeric" autoComplete="off" value={pin} aria-label="PIN" placeholder="PIN"
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600" />
+                </div>
+                <Button type="submit" variant="primary" size="lg" isLoading={isLoading} className="w-full" disabled={!employeeNumber || pin.length < 4}>Sign in</Button>
+              </form>
+            ) : (
+              <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-4">Sign in once with your email on this till to set it up. After that, staff can sign in with their employee number and PIN.</p>
+            )
+          )}
+
+          {mode === 'email' && <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -94,7 +135,7 @@ export const Login = () => {
             >
               Sign In
             </Button>
-          </form>
+          </form>}
         </div>
       </div>
     </div>

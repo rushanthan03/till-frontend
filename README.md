@@ -43,6 +43,27 @@ Use the users created by the backend (see its README). With the demo data loaded
 9. Managers: **Promotions** (% off a product or department, or N-for-£X) apply automatically at the till while on and in date; the best single offer wins per item. **Customers** lists loyalty members, shared by all stores of the company. Cashiers use the **Customer** button to find or sign up a customer; they earn 1 point per £1 (taken back on refunds).
 10. Managers: **Reports** has VAT (by rate), Tender (cash/card), Departments and Products (best sellers with estimated margin) for Today, Yesterday, Last 7 days, This month, All time or a custom range. Export any report to CSV.
 
+## Desktop app (Windows till)
+The till also runs as a full-screen desktop app (Electron) with receipt printer and cash drawer control.
+
+| Command | What it does |
+|---|---|
+| `npm run electron:dev` | Open the desktop shell on the dev server (run `npm run dev` first) |
+| `npm run electron:start` | Build the web app and open it from disk in a window |
+| `npm run electron:pack` | Build a Windows installer into `release/` (run on Windows, or a machine with Wine) |
+| `npm run electron:selftest` | Checks printing and the drawer against a fake network printer |
+
+- **Printer:** Device settings (sidebar) lets you pick a network ESC/POS printer (IP, port 9100, 58 or 80 mm) or a printer installed on the computer. Use *Print test page* and *Open drawer* to check it. Receipts print automatically after a sale and the drawer opens for cash sales and No sale.
+- **Exit:** Ctrl+Shift+Q. F11 toggles full screen.
+- **Scanner:** USB/Bluetooth keyboard-style scanners need no setup (set the scanner to add Enter after each scan).
+- **Not yet tested on real hardware:** the printer, drawer and Windows installer paths are tested against a fake printer and a smoke test only.
+
+## Offline mode
+If the server can't be reached the till keeps selling **cash** sales from a local copy of the products and offers. Sales wait on the till and send automatically when the connection returns (each carries a unique id, so a resend never doubles a sale). Offline: no card payments, discounts, refunds, cash movements or closing the till. Managers can switch on *Simulate offline* in Device settings for demos and training.
+
+## Staff sign-in
+After one email sign-in the till remembers its company and shows a **Staff PIN** screen (employee number + PIN). Admins set these under Staff > menu > *Till sign-in (PIN)*. PIN sign-in clocks the person in; they clock out from the till after closing it. Managers see hours under **Attendance**. Demo: cashier `1001` / `1111`, manager `9001` / `2580`.
+
 ## Scripts
 | Command | What it does |
 |---|---|

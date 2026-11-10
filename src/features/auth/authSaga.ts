@@ -11,6 +11,11 @@ function* loginSaga(action: PayloadAction<AuthCredentials>): Generator<CallEffec
     try {
         const response = yield call(authAPI.login, action.payload);
         tokenStorage.setTokens(response.accessToken, response.refreshToken)
+        // Remember which company this till belongs to, so staff can use their PIN next time.
+        try {
+            const u = response.user as { tenantId?: string; restaurant?: { name?: string }; role?: string };
+            if (u?.tenantId) localStorage.setItem('till.device', JSON.stringify({ tenantId: u.tenantId, storeName: u.restaurant?.name ?? '' }));
+        } catch { /* storage unavailable */ }
         toast.success(`Welcome ${response.user?.name}!`)
         yield put(loginSuccess(response))
     } catch (error) {

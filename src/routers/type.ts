@@ -7,6 +7,8 @@ export enum RouteLinks {
     SHIFTS = '/shifts',
     DAY_REPORT = '/day-report',
     REPORTS = '/reports',
+    DEVICE = '/device',
+    ATTENDANCE = '/attendance',
     STOCK = '/stock',
     PROMOTIONS = '/promotions',
     CUSTOMERS = '/customers',
