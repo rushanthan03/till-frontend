@@ -2,7 +2,7 @@
 export const formatPhoneNumber = (phoneNumber: string): string => {
     if (!phoneNumber) return '';
 
-    let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    const cleaned = phoneNumber.replace(/[\s\-()]/g, '');
 
     if (cleaned.startsWith('+94')) {
         return cleaned;

@@ -72,8 +72,6 @@ export const Users = () => {
     }, [isModalOpen, isCreateUserRole, isDeleteUser, error])
 
     useLayoutEffect(() => {
-        if (user?.restaurantId) {
-        }
         if (user?.role === UserRole.SUPER_ADMIN) {
             dispatch(fetchAllUserRoleRequest({ page: Number(page), limit: Number(limit) }))
         } else {
