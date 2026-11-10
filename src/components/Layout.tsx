@@ -1,7 +1,7 @@
+import auvrenMark from '../assets/auvren-mark.png';
 import React, { type FC, useLayoutEffect, useState, useMemo } from 'react';
 import {
   LayoutDashboard,
-  Store,
   Users,
   Settings,
   Menu,
@@ -171,9 +171,7 @@ export const Layout: FC = () => {
                     className="w-10 h-10 rounded-xl object-cover shadow-2xs border border-slate-100"
                   />
                 ) : (
-                  <div className="p-2 rounded-xl" style={{ backgroundColor: primaryColor }}>
-                    <Store className="w-5 h-5 text-white" />
-                  </div>
+                  <img src={auvrenMark} alt="Auvren" className="w-10 h-10 rounded-xl object-cover shadow-2xs border border-slate-100" />
                 )}
                 <div>
                   {isMultiStoreAdmin && stores && stores.length > 1 ? (
@@ -195,7 +193,7 @@ export const Layout: FC = () => {
                     <p className="text-sm font-black text-gray-900 leading-tight">{currentStore?.name || user?.restaurant?.name || 'Store'}</p>
                   )}
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {isMultiStoreAdmin ? 'Store admin' : 'Supermarket Till'}
+                    {isMultiStoreAdmin ? 'Store admin' : 'Auvren Till'}
                   </p>
                 </div>
               </div>

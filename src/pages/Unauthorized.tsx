@@ -77,7 +77,7 @@ const Unauthorized: FC = () => {
                 {/* Footer Brand */}
                 <div className="mt-16 pt-8 border-t border-gray-100">
                     <p className="text-gray-300 font-bold uppercase tracking-[0.2em] text-[10px]">
-                        Supermarket Till
+                        Auvren Till
                     </p>
                 </div>
             </div>

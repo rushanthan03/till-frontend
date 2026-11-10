@@ -3,7 +3,7 @@ import { Lock, Mail, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuth } from '../hooks/useAuth';
 import { hexToRgba } from '../utils';
-import logo from '../assets/logo.png';
+import logo from '../assets/auvren-logo.png';
 
 export const Login = () => {
   const { login, isLoading, primaryColor } = useAuth();
@@ -29,11 +29,11 @@ export const Login = () => {
   return (
     <div style={{ background: `linear-gradient(to bottom right, ${hexToRgba(primaryColor, 0.05)}, transparent, ${hexToRgba(primaryColor, 0.05)})` }} className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center -mb-8">
+        <div className="text-center mb-4">
           {lastLogo ? (
             <img src={lastLogo} className="w-24 h-24 object-cover mx-auto rounded-2xl shadow-xs" alt="Store logo" />
           ) : (
-            <img src={logo} className="w-24 h-24 object-cover mx-auto rounded-2xl shadow-md border border-slate-700/20" alt="Supermarket Till logo" />
+            <img src={logo} className="w-80 max-w-full h-auto mx-auto rounded-2xl bg-white shadow-md" alt="Auvren – Till & Ecommerce Solutions" />
           )}
         </div>
 

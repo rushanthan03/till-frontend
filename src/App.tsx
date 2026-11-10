@@ -19,13 +19,13 @@ function App() {
       if (user?.restaurant?.logo) {
         favicon.href = user.restaurant.logo;
       } else {
-        favicon.href = storedLogo || "/src/assets/mini_logo.jpeg";
+        favicon.href = storedLogo || "/favicon.png";
       }
     }
     
     document.title = user?.restaurant?.name 
-      ? `${user.restaurant.name} - Supermarket Till` 
-      : "Supermarket Till";
+      ? `${user.restaurant.name} - Auvren Till` 
+      : "Auvren Till";
   }, [user]);
 
 
