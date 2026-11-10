@@ -16,6 +16,7 @@ import { Products } from "../pages/Products";
 import { Till } from "../pages/Till";
 import { SalesHistory } from "../pages/SalesHistory";
 import { ShiftHistory } from "../pages/ShiftHistory";
+import { DayReportPage } from "../pages/DayReport";
 
 const { SUPER_ADMIN, TENANT_ADMIN, MANAGER, CASHIER } = UserRole;
 
@@ -47,11 +48,12 @@ const WebRouter: FC = () => {
                 <Route path={RouteLinks.TILL} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER, CASHIER], <Till />)} />
                 <Route path={RouteLinks.SALES} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <SalesHistory />)} />
                 <Route path={RouteLinks.SHIFTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <ShiftHistory />)} />
+                <Route path={RouteLinks.DAY_REPORT} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <DayReportPage />)} />
                 <Route path={RouteLinks.PRODUCTS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <Products />)} />
 
                 {/* Administration */}
                 <Route path={RouteLinks.USERS} element={guarded([TENANT_ADMIN, SUPER_ADMIN], <Users />)} />
-                <Route path={RouteLinks.SETTINGS} element={guarded([TENANT_ADMIN, SUPER_ADMIN], <Settings />)} />
+                <Route path={RouteLinks.SETTINGS} element={guarded([TENANT_ADMIN, SUPER_ADMIN, MANAGER], <Settings />)} />
             </Route>
 
             <Route path={RouteLinks.UNAUTHORIZED} element={<Unauthorized />} />

@@ -21,6 +21,10 @@ export interface Shift {
     refundsTotal: number | null;
     cashRefunds: number | null;
     cardRefunds: number | null;
+    paidIn: number | null;
+    paidOut: number | null;
+    safeDrops: number | null;
+    noSaleCount: number | null;
 }
 
 /** Running totals for an open shift (X report). */
@@ -36,6 +40,10 @@ export interface XReport {
     cardSales: number;
     cashRefunds: number;
     cardRefunds: number;
+    paidIn: number;
+    paidOut: number;
+    safeDrops: number;
+    noSales: number;
     expectedCash: number;
     varianceNoteThreshold: number;
 }
@@ -82,4 +90,41 @@ export interface ShiftsSummary {
     balancedCount: number;
     shortTotal: number;
     overTotal: number;
+}
+
+export type CashMovementType = 'paid_in' | 'paid_out' | 'safe_drop' | 'no_sale';
+
+export interface CashMovement {
+    id: string;
+    shiftId: string;
+    userName: string;
+    type: CashMovementType;
+    amount: number;
+    reason: string;
+    approvedByName: string | null;
+    createdAt: string;
+}
+
+export interface CashMovementInput {
+    type: CashMovementType;
+    amount?: number;
+    reason: string;
+    approvalToken?: string;
+}
+
+export interface DayReport {
+    date: string;
+    sessions: number;
+    openSessions: number;
+    discountTotal: number;
+    totals: {
+        transactions: number; refundCount: number; grossSales: number; refundsTotal: number; netSales: number; vat: number;
+        cashSales: number; cardSales: number; cashRefunds: number; cardRefunds: number;
+        paidIn: number; paidOut: number; safeDrops: number; noSales: number;
+        expectedCash: number; countedCash: number; variance: number;
+    };
+    shifts: {
+        id: string; cashierName: string; status: 'open' | 'closed'; openedAt: string; closedAt: string | null;
+        netSales: number; expectedCash: number; countedCash: number | null; variance: number | null;
+    }[];
 }

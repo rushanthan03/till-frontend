@@ -1,5 +1,5 @@
 import axiosClient from "../../api/axiosClient";
-import { CountResult, Shift, ShiftDetail, ShiftListParams, ShiftListResponse, ShiftsSummary, XReport } from "./types";
+import { CashMovement, CashMovementInput, DayReport, CountResult, Shift, ShiftDetail, ShiftListParams, ShiftListResponse, ShiftsSummary, XReport } from "./types";
 
 // axiosClient's response interceptor already unwraps `response.data`.
 const unwrap = <T>(request: Promise<unknown>) => request as Promise<T>;
@@ -12,6 +12,12 @@ export const ShiftsAPI = {
     },
     open: (storeId: string | undefined, body: { openingFloat: number; note?: string }) =>
         unwrap<Shift>(axiosClient.post('/api/shifts/open', body, { params: { storeId } })),
+    addMovement: (storeId: string | undefined, body: CashMovementInput) =>
+        unwrap<CashMovement>(axiosClient.post('/api/shifts/current/movements', body, { params: { storeId } })),
+    movements: (storeId: string | undefined, shiftId: string) =>
+        unwrap<CashMovement[]>(axiosClient.get(`/api/shifts/${shiftId}/movements`, { params: { storeId } })),
+    dayReport: (storeId: string | undefined, date?: string) =>
+        unwrap<DayReport>(axiosClient.get('/api/shifts/day-report', { params: { storeId, date } })),
     xReport: (storeId?: string) =>
         unwrap<XReport>(axiosClient.get('/api/shifts/current/x-report', { params: { storeId } })),
     count: (storeId: string | undefined, countedCash: number) =>

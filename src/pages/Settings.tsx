@@ -92,6 +92,16 @@ export const Settings = () => {
     setTimeout(() => setIsSubmitting(false), 800);
   };
 
+  // Managers only get their own approval PIN here; store details are for admins.
+  if (user?.role === 'manager') {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <ApprovalPinCard />
+      </div>
+    );
+  }
+
   if (loading) return <SettingsSkeleton />;
 
   return (

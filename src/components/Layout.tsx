@@ -13,6 +13,7 @@ import {
   ScanBarcode,
   History,
   Clock,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../utils/constants';
@@ -28,6 +29,7 @@ const menuItems: SideMenuListType[] = [
   { id: RouteLinks.TILL, label: 'Till', icon: ScanBarcode },
   { id: RouteLinks.SALES, label: 'Sales history', icon: History },
   { id: RouteLinks.SHIFTS, label: 'Till sessions', icon: Clock },
+  { id: RouteLinks.DAY_REPORT, label: 'Day end report', icon: FileText },
   { id: RouteLinks.PRODUCTS, label: 'Products', icon: Package },
   { id: RouteLinks.USERS, label: 'Staff', icon: Users },
   { id: RouteLinks.SETTINGS, label: 'Settings', icon: Settings },
@@ -130,7 +132,7 @@ export const Layout: FC = () => {
     if (isCashier) return [RouteLinks.TILL];
     if (isTenantAdmin || isSuperAdmin) return menuItems.map(item => item.id);
     if (isManager) {
-      return menuItems.map(item => item.id).filter(id => id !== RouteLinks.USERS && id !== RouteLinks.SETTINGS);
+      return menuItems.map(item => item.id).filter(id => id !== RouteLinks.USERS);
     }
     return [RouteLinks.TILL];
   }, [isTenantAdmin, isSuperAdmin, isManager, isCashier]);
@@ -139,7 +141,7 @@ export const Layout: FC = () => {
   const visibleItems = menuItems.filter(item => allowed.includes(item.id) && item.id !== RouteLinks.SETTINGS);
 
   const operationItems = visibleItems.filter(item =>
-    [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS].includes(item.id as RouteLinks));
+    [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT].includes(item.id as RouteLinks));
   const managementItems = visibleItems.filter(item =>
     [RouteLinks.PRODUCTS, RouteLinks.USERS].includes(item.id as RouteLinks));
 

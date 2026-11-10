@@ -169,6 +169,10 @@ export function CloseTillModal({ storeId, storeName, heldCount, basketHasItems, 
                             cardSales: closedShift.cardSales ?? 0,
                             cashRefunds: closedShift.cashRefunds ?? 0,
                             cardRefunds: closedShift.cardRefunds ?? 0,
+                            paidIn: closedShift.paidIn ?? 0,
+                            paidOut: closedShift.paidOut ?? 0,
+                            safeDrops: closedShift.safeDrops ?? 0,
+                            noSales: closedShift.noSaleCount ?? 0,
                         }}
                         extra={<>
                             <Divider />

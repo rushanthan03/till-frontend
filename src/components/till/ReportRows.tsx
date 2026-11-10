@@ -24,6 +24,10 @@ interface Figures {
     cardSales: number;
     cashRefunds: number;
     cardRefunds: number;
+    paidIn?: number;
+    paidOut?: number;
+    safeDrops?: number;
+    noSales?: number;
 }
 
 /** Shared body for the X report (running) and the Z report (final). */
@@ -55,6 +59,14 @@ export function ReportView({ title, storeName, cashier, opened, closed, openingF
                 <Row label="Card refunds" value={out(figures.cardRefunds)} />
                 <Divider />
                 <Row label="Opening float" value={money(openingFloat)} />
+                {!!(figures.paidIn || figures.paidOut || figures.safeDrops || figures.noSales) && (
+                    <>
+                        <Row label="Paid in" value={money(figures.paidIn ?? 0)} />
+                        <Row label="Paid out" value={out(figures.paidOut ?? 0)} />
+                        <Row label="Safe drops" value={out(figures.safeDrops ?? 0)} />
+                        <Row label="No sale opens" value={figures.noSales ?? 0} />
+                    </>
+                )}
                 {extra}
             </div>
         </>

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -13,6 +13,7 @@ import { OpenTillScreen } from '../components/till/OpenTillScreen';
 import { XReportModal } from '../components/till/XReportModal';
 import { CloseTillModal } from '../components/till/CloseTillModal';
 import { RefundModal } from '../components/till/RefundModal';
+import { CashMovementModal } from '../components/till/CashMovementModal';
 import { DiscountModal } from '../components/till/DiscountModal';
 import { ManagerPinModal } from '../components/till/ManagerPinModal';
 import { Approval } from '../features/approvals/approvalsAPI';
@@ -26,7 +27,7 @@ import { ShiftsAPI } from '../features/shifts/shiftsAPI';
 import { UserRole } from '../utils/constants';
 import type { DepartmentCount, Product } from '../features/products/types';
 import type { PaymentInput, Sale } from '../features/sales/types';
-import type { Shift } from '../features/shifts/types';
+import type { CashMovementType, Shift } from '../features/shifts/types';
 
 const heldKey = (storeId: string) => `till.heldSales.${storeId}`;
 
@@ -77,6 +78,8 @@ export const Till = () => {
     const [showXReport, setShowXReport] = useState(false);
     const [showClose, setShowClose] = useState(false);
     const [showRefund, setShowRefund] = useState(false);
+    const [showCash, setShowCash] = useState(false);
+    const [savingCash, setSavingCash] = useState(false);
     // discounts / price overrides: a cashier needs a manager PIN, managers and admins approve themselves
     const [discountIndex, setDiscountIndex] = useState<number | null>(null);
     const [pinRequest, setPinRequest] = useState<{ summary: string; then: (a: Approval) => void } | null>(null);
@@ -85,7 +88,7 @@ export const Till = () => {
 
     const inputRef = useRef<HTMLInputElement>(null);
     const totals = useMemo(() => basketTotals(basket), [basket]);
-    const modalOpen = !!(discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
+    const modalOpen = !!(showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
 
     // Keep the scan box focused so a barcode scanner (which "types" the code + Enter) always lands in it.
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
@@ -248,6 +251,26 @@ export const Till = () => {
         setDiscountIndex(null);
     };
 
+    const recordMovement = (m: { type: CashMovementType; amount?: number; reason: string }) => {
+        const send = async (token?: string) => {
+            setSavingCash(true);
+            try {
+                await ShiftsAPI.addMovement(storeId, { ...m, approvalToken: token });
+                toast.success(m.type === 'no_sale' ? 'No sale recorded' : 'Cash movement recorded');
+                setShowCash(false);
+            } catch (error) {
+                toast.error(handleApiError(error));
+            } finally {
+                setSavingCash(false);
+            }
+        };
+        if (m.type === 'paid_out' && !isManager) {
+            setPinRequest({ summary: `paid out of ${money(m.amount ?? 0)} (${m.reason})`, then: (a) => { void send(a.approvalToken); } });
+            return;
+        }
+        void send();
+    };
+
     const startPayment = () => {
         if (hasAdjustments(basket) && !isManager && !approvalValid) {
             setPinRequest({
@@ -319,6 +342,7 @@ export const Till = () => {
                         {pendingQty && (
                             <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold">Next item × {pendingQty}</span>
                         )}
+                        <button type="button" onClick={() => setShowCash(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Wallet className="w-4 h-4" />Cash</button>
                         <button type="button" onClick={() => setShowXReport(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><BarChart3 className="w-4 h-4" />X report</button>
                         {canRefund && <button type="button" onClick={() => setShowRefund(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Undo2 className="w-4 h-4" />Refund</button>}
                         <button type="button" onClick={() => setShowClose(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Lock className="w-4 h-4" />Close till</button>
@@ -486,6 +510,7 @@ export const Till = () => {
                     }}
                 />
             )}
+            {showCash && <CashMovementModal submitting={savingCash} onSubmit={recordMovement} onClose={() => setShowCash(false)} />}
             {discountIndex !== null && basket[discountIndex] && (
                 <DiscountModal
                     line={basket[discountIndex]}
