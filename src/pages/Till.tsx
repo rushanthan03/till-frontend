@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, X as XIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -13,6 +13,10 @@ import { OpenTillScreen } from '../components/till/OpenTillScreen';
 import { XReportModal } from '../components/till/XReportModal';
 import { CloseTillModal } from '../components/till/CloseTillModal';
 import { RefundModal } from '../components/till/RefundModal';
+import { CustomerModal } from '../components/till/CustomerModal';
+import type { Customer } from '../features/customers/customersAPI';
+import { PromotionsAPI } from '../features/promotions/promotionsAPI';
+import type { Promotion } from '../features/promotions/types';
 import { CashMovementModal } from '../components/till/CashMovementModal';
 import { DiscountModal } from '../components/till/DiscountModal';
 import { ManagerPinModal } from '../components/till/ManagerPinModal';
@@ -20,7 +24,7 @@ import { Approval } from '../features/approvals/approvalsAPI';
 import { useAuth } from '../hooks/useAuth';
 import { handleApiError } from '../api/handleApiError';
 import { money } from '../utils/money';
-import { BasketLine, LineAdjustment, addToBasket, basketTotals, calcLine, hasAdjustments, highestAge, needsAgeCheck, round3, unitPriceOf } from '../utils/basket';
+import { BasketLine, LineAdjustment, addToBasket, basketTotals, lineAmounts, hasAdjustments, highestAge, needsAgeCheck, round3, unitPriceOf } from '../utils/basket';
 import { ProductsAPI } from '../features/products/productsAPI';
 import { SalesAPI } from '../features/sales/salesAPI';
 import { ShiftsAPI } from '../features/shifts/shiftsAPI';
@@ -63,6 +67,11 @@ export const Till = () => {
     const [activeDept, setActiveDept] = useState<string>('');
     const [deptProducts, setDeptProducts] = useState<Product[]>([]);
 
+    // running offers (applied automatically) and the loyalty customer on this sale
+    const [promos, setPromos] = useState<Promotion[]>([]);
+    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [showCustomer, setShowCustomer] = useState(false);
+
     // modal state
     const [ageCheck, setAgeCheck] = useState<{ product: Product; qty: number } | null>(null);
     const [weighing, setWeighing] = useState<Product | null>(null);
@@ -87,8 +96,8 @@ export const Till = () => {
     const [held, setHeld] = useState<HeldSale[]>(() => (storeId ? readHeld(storeId) : []));
 
     const inputRef = useRef<HTMLInputElement>(null);
-    const totals = useMemo(() => basketTotals(basket), [basket]);
-    const modalOpen = !!(showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
+    const totals = useMemo(() => basketTotals(basket, promos), [basket, promos]);
+    const modalOpen = !!(showCustomer || showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
 
     // Keep the scan box focused so a barcode scanner (which "types" the code + Enter) always lands in it.
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
@@ -115,6 +124,11 @@ export const Till = () => {
     useEffect(() => {
         if (!storeId) return;
         ProductsAPI.departments(storeId).then(setDepartments).catch((e) => toast.error(handleApiError(e)));
+    }, [storeId]);
+
+    useEffect(() => {
+        if (!storeId) return;
+        PromotionsAPI.current(storeId).then(setPromos).catch(() => setPromos([]));
     }, [storeId]);
 
     useEffect(() => {
@@ -192,7 +206,7 @@ export const Till = () => {
     };
 
     const clearSale = () => {
-        setBasket([]); setSelected(null); setApproval(null); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
+        setBasket([]); setSelected(null); setApproval(null); setCustomer(null); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
     };
 
     const holdSale = () => {
@@ -295,6 +309,7 @@ export const Till = () => {
                 })),
                 payments,
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
+                customerId: customer?.id,
                 approvalToken: hasAdjustments(basket) && !isManager ? approval?.token : undefined,
             });
             setShowPayment(false);
@@ -341,6 +356,14 @@ export const Till = () => {
                     <span className="flex items-center gap-2">
                         {pendingQty && (
                             <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold">Next item × {pendingQty}</span>
+                        )}
+                        {customer ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
+                                <UserRound className="w-4 h-4" />{customer.name} · {customer.pointsBalance} pts
+                                <button type="button" aria-label="Remove customer" onClick={() => setCustomer(null)} className="ml-1 text-blue-700 hover:text-blue-900"><XIcon className="w-3.5 h-3.5" /></button>
+                            </span>
+                        ) : (
+                            <button type="button" onClick={() => setShowCustomer(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><UserRound className="w-4 h-4" />Customer</button>
                         )}
                         <button type="button" onClick={() => setShowCash(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><Wallet className="w-4 h-4" />Cash</button>
                         <button type="button" onClick={() => setShowXReport(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700"><BarChart3 className="w-4 h-4" />X report</button>
@@ -391,7 +414,7 @@ export const Till = () => {
                             )}
                             {basket.map((l, i) => {
                                 const unit = unitPriceOf(l);
-                                const amt = calcLine(unit, l.quantity, l.product.vatRate);
+                                const amt = lineAmounts(l, promos);
                                 const weighed = l.product.unitType === 'weight';
                                 return (
                                     <tr key={`${l.product.id}-${i}`} onClick={() => setSelected(i)} aria-selected={selected === i}
@@ -402,6 +425,7 @@ export const Till = () => {
                                                 {l.product.ageRestriction > 0 && <span title={`${l.product.ageRestriction}+ only`} className="inline-flex items-center gap-0.5 text-xs text-amber-700"><ShieldAlert className="w-3.5 h-3.5" />{l.product.ageRestriction}+</span>}
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono">{l.product.barcode}</div>
+                                            {amt.promoName && <div className="text-xs text-green-700">Offer: {amt.promoName} · saves {money(amt.promoDiscount)}</div>}
                                             {l.adjustment && <div className="text-xs text-green-700">Discount: {l.adjustment.kind === 'percent' ? `${l.adjustment.value}% off` : 'price override'} · {l.adjustment.reason}</div>}
                                         </td>
                                         <td className="px-3 py-2.5">
@@ -510,6 +534,7 @@ export const Till = () => {
                     }}
                 />
             )}
+            {showCustomer && <CustomerModal storeId={storeId} onPick={(c) => { setCustomer(c); setShowCustomer(false); }} onClose={() => setShowCustomer(false)} />}
             {showCash && <CashMovementModal submitting={savingCash} onSubmit={recordMovement} onClose={() => setShowCash(false)} />}
             {discountIndex !== null && basket[discountIndex] && (
                 <DiscountModal

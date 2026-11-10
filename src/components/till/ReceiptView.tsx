@@ -44,6 +44,7 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                 {sale.items.map(i => (
                     <div key={i.id} className="mb-1">
                         <div className="flex justify-between gap-2"><span className="break-words">{i.name}</span><span>{money(i.lineTotal)}</span></div>
+                        {i.promoDiscount > 0 && <div className="text-gray-500 pl-2">{i.promotionName}: -{money(i.promoDiscount)}</div>}
                         {i.originalUnitPrice != null && <div className="text-gray-500 pl-2">Was {money(i.originalUnitPrice)} · {i.adjustmentReason}</div>}
                         {i.quantity !== 1 && <div className="text-gray-500 pl-2">{i.quantity} {Number.isInteger(i.quantity) ? '×' : 'kg @'} {money(i.unitPrice)}{Number.isInteger(i.quantity) ? '' : '/kg'}</div>}
                     </div>
@@ -67,6 +68,7 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                 </div>
                 {sale.ageVerified && <div className="mt-2 text-center text-gray-600">Age verification completed</div>}
                 <div className="my-2 border-t border-dashed border-gray-400" />
+                {sale.customerName && <div className="mb-1">Customer: {sale.customerName}{sale.pointsEarned > 0 ? ` · +${sale.pointsEarned} pts` : ''}</div>}
                 <div className="text-center">Thank you for shopping with us</div>
             </div>
         </>

@@ -40,6 +40,7 @@ Use the users created by the backend (see its README). With the demo data loaded
 6. **Cash** button: paid in, paid out (cashiers need a manager PIN), safe drop and no sale, each with a reason. They count towards the expected cash at close and appear on the X and Z reports.
 7. Managers: **Day end report** shows all sessions of a day with combined sales, tenders, cash movements and cash difference.
 8. Managers: **Stock** has an overview (low/out/negative, value), **Receive stock** (deliveries, updates cost), **Adjust / waste** (waste, damaged, expired, corrections), **Stocktake** (count a department, differences are corrected) and **History** (every change, including sales and refunds).
+9. Managers: **Promotions** (% off a product or department, or N-for-£X) apply automatically at the till while on and in date; the best single offer wins per item. **Customers** lists loyalty members. Cashiers use the **Customer** button to find or sign up a customer; they earn 1 point per £1 (taken back on refunds).
 
 ## Scripts
 | Command | What it does |

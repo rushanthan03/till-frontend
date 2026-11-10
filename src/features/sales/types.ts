@@ -13,6 +13,8 @@ export interface SaleItem {
     lineTotal: number;
     vatAmount: number;
     ageRestriction: number;
+    promoDiscount: number;
+    promotionName: string | null;
     originalUnitPrice: number | null;
     adjustmentReason: string | null;
     refundedQuantity: number;
@@ -41,6 +43,8 @@ export interface Sale {
     changeDue: number;
     itemCount: number;
     discountTotal: number;
+    customerName: string | null;
+    pointsEarned: number;
     approvedByName: string | null;
     ageVerified: boolean;
     items: SaleItem[];
@@ -68,6 +72,7 @@ export interface CreateSaleInput {
     ageVerified?: boolean;
     /** From the manager PIN check; needed when a cashier applies a discount or override. */
     approvalToken?: string;
+    customerId?: string;
 }
 
 /** Totals for a period; same definitions as the X report (net = gross - refunds). */

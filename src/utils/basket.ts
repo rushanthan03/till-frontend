@@ -1,4 +1,5 @@
 import type { Product } from '../features/products/types';
+import type { Promotion } from '../features/promotions/types';
 
 // Mirrors the backend's sale-calculations.ts. The server recalculates everything
 // when a sale is saved; these figures are for the live display only.
@@ -38,8 +39,35 @@ export function calcLine(unitPrice: number, quantity: number, vatRate: number): 
     return { lineTotal, netAmount, vatAmount: round2(lineTotal - netAmount) };
 }
 
-export function basketTotals(lines: BasketLine[]) {
-    const amounts = lines.map(l => calcLine(unitPriceOf(l), l.quantity, l.product.vatRate));
+/** Best running offer for a line (offers never stack). Hand-discounted lines get no offer. Mirrors the backend. */
+export function promoFor(l: BasketLine, promos: Promotion[]): { promo: Promotion; discount: number } | null {
+    if (l.adjustment) return null;
+    const unit = l.product.price;
+    let best: { promo: Promotion; discount: number } | null = null;
+    for (const p of promos) {
+        const applies = p.scope === 'product' ? p.productId === l.product.id : !!p.department && p.department === l.product.department;
+        if (!applies) continue;
+        let d = 0;
+        if (p.type === 'percent_off') d = round2((unit * l.quantity * (p.percentOff ?? 0)) / 100);
+        else if (p.buyQty && p.buyQty >= 2 && p.bundlePrice !== null && Number.isInteger(l.quantity)) {
+            d = Math.max(0, round2(Math.floor(l.quantity / p.buyQty) * (unit * p.buyQty - p.bundlePrice)));
+        }
+        if (d > 0 && (!best || d > best.discount)) best = { promo: p, discount: d };
+    }
+    return best;
+}
+
+/** Line figures after any offer. */
+export function lineAmounts(l: BasketLine, promos: Promotion[] = []): LineAmounts & { promoDiscount: number; promoName: string | null } {
+    const unit = unitPriceOf(l);
+    const hit = promoFor(l, promos);
+    const lineTotal = round2(round2(unit * l.quantity) - (hit?.discount ?? 0));
+    const netAmount = round2(lineTotal / (1 + l.product.vatRate / 100));
+    return { lineTotal, netAmount, vatAmount: round2(lineTotal - netAmount), promoDiscount: hit?.discount ?? 0, promoName: hit?.promo.name ?? null };
+}
+
+export function basketTotals(lines: BasketLine[], promos: Promotion[] = []) {
+    const amounts = lines.map(l => lineAmounts(l, promos));
     const total = round2(amounts.reduce((a, l) => a + l.lineTotal, 0));
     const vatTotal = round2(amounts.reduce((a, l) => a + l.vatAmount, 0));
     const itemCount = lines.reduce((n, l) => n + (l.product.unitType === 'weight' ? 1 : l.quantity), 0);
