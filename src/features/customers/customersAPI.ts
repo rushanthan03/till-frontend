@@ -16,7 +16,8 @@ export interface Customer {
 }
 
 export interface CustomerDetail extends Customer {
-    recentSales: { id: string; receiptNumber: string; total: number; pointsEarned: number; status: string; createdAt: string }[];
+    homeStoreName: string | null;
+    recentSales: { id: string; receiptNumber: string; total: number; pointsEarned: number; status: string; createdAt: string; storeName: string | null }[];
 }
 
 export interface CustomerInput {

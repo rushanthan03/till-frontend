@@ -38,7 +38,7 @@ export const CustomersPage = () => {
         <div className="space-y-4">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><UsersRound className="w-6 h-6" />Customers</h1>
-                <p className="text-sm text-gray-600">Loyalty members. They earn 1 point for every £1 spent. Cashiers sign customers up at the till.</p>
+                <p className="text-sm text-gray-600">Loyalty members of your whole company: points are earned and kept across all your stores. They earn 1 point for every £1 spent. Cashiers sign customers up at the till.</p>
             </div>
             <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search name, phone, email or card" aria-label="Search customers"
                 className="w-full max-w-sm px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-600" />
@@ -71,13 +71,13 @@ export const CustomersPage = () => {
                             <div>Card: <b className="font-mono">{detail.cardNumber}</b></div><div>Points: <b>{detail.pointsBalance}</b></div>
                             <div>Phone: {detail.phone ?? '—'}</div><div>Email: {detail.email ?? '—'}</div>
                             <div>Total spend: {money(detail.totalSpend)}</div><div>Visits: {detail.visitCount}</div>
-                            <div>Joined: {when(detail.createdAt)}</div><div>Marketing: {detail.marketingConsent ? 'Opted in' : 'No'}</div>
+                            <div>Joined: {when(detail.createdAt)}{detail.homeStoreName ? ` at ${detail.homeStoreName}` : ''}</div><div>Marketing: {detail.marketingConsent ? 'Opted in' : 'No'}</div>
                         </div>
                         <div className="font-semibold text-gray-900 pt-2">Recent purchases</div>
                         {detail.recentSales.length === 0 ? <p className="text-gray-500">No purchases yet.</p> : (
                             <ul className="divide-y divide-gray-100">
                                 {detail.recentSales.map(s => (
-                                    <li key={s.id} className="flex justify-between py-1.5"><span>{s.receiptNumber} · {when(s.createdAt)}</span><span>{money(s.total)} · +{s.pointsEarned} pts</span></li>
+                                    <li key={s.id} className="flex justify-between py-1.5"><span>{s.receiptNumber} · {when(s.createdAt)}{s.storeName ? ` · ${s.storeName.replace(/^.* - /, '')}` : ''}</span><span>{money(s.total)} · +{s.pointsEarned} pts</span></li>
                                 ))}
                             </ul>
                         )}
