@@ -36,6 +36,7 @@ Use the users created by the backend (see its README). With the demo data loaded
 2. Scan or type a barcode (demo barcodes start with `5000000…`) or use the department buttons.
 3. Take payment (cash, split, or simulated card), then close the till with a blind cash count at end of shift.
 4. Refunds are manager-only.
+5. Discounts and price overrides: select a basket line, press **Discount**. Cashiers need a manager to type their PIN (demo managers: `2580`); managers and admins apply it themselves. Every discount is stored with its reason and approver.
 
 ## Scripts
 | Command | What it does |

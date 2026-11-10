@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -13,10 +13,13 @@ import { OpenTillScreen } from '../components/till/OpenTillScreen';
 import { XReportModal } from '../components/till/XReportModal';
 import { CloseTillModal } from '../components/till/CloseTillModal';
 import { RefundModal } from '../components/till/RefundModal';
+import { DiscountModal } from '../components/till/DiscountModal';
+import { ManagerPinModal } from '../components/till/ManagerPinModal';
+import { Approval } from '../features/approvals/approvalsAPI';
 import { useAuth } from '../hooks/useAuth';
 import { handleApiError } from '../api/handleApiError';
 import { money } from '../utils/money';
-import { BasketLine, addToBasket, basketTotals, calcLine, highestAge, needsAgeCheck, round3 } from '../utils/basket';
+import { BasketLine, LineAdjustment, addToBasket, basketTotals, calcLine, hasAdjustments, highestAge, needsAgeCheck, round3, unitPriceOf } from '../utils/basket';
 import { ProductsAPI } from '../features/products/productsAPI';
 import { SalesAPI } from '../features/sales/salesAPI';
 import { ShiftsAPI } from '../features/shifts/shiftsAPI';
@@ -74,11 +77,15 @@ export const Till = () => {
     const [showXReport, setShowXReport] = useState(false);
     const [showClose, setShowClose] = useState(false);
     const [showRefund, setShowRefund] = useState(false);
+    // discounts / price overrides: a cashier needs a manager PIN, managers and admins approve themselves
+    const [discountIndex, setDiscountIndex] = useState<number | null>(null);
+    const [pinRequest, setPinRequest] = useState<{ summary: string; then: (a: Approval) => void } | null>(null);
+    const [approval, setApproval] = useState<{ token: string; name: string; expiresAt: number } | null>(null);
     const [held, setHeld] = useState<HeldSale[]>(() => (storeId ? readHeld(storeId) : []));
 
     const inputRef = useRef<HTMLInputElement>(null);
     const totals = useMemo(() => basketTotals(basket), [basket]);
-    const modalOpen = !!(showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
+    const modalOpen = !!(discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
 
     // Keep the scan box focused so a barcode scanner (which "types" the code + Enter) always lands in it.
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
@@ -182,7 +189,7 @@ export const Till = () => {
     };
 
     const clearSale = () => {
-        setBasket([]); setSelected(null); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
+        setBasket([]); setSelected(null); setApproval(null); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
     };
 
     const holdSale = () => {
@@ -209,13 +216,63 @@ export const Till = () => {
         setHeld(next); writeHeld(storeId, next);
     };
 
+    const isManager = [UserRole.MANAGER, UserRole.TENANT_ADMIN, UserRole.SUPER_ADMIN].includes(user?.role as UserRole);
+    const approvalValid = !!approval && approval.expiresAt > Date.now();
+
+    /** Runs `then` once a manager has approved (immediately when the signed-in user is a manager). */
+    const withApproval = (summary: string, then: (a: Approval | null) => void) => {
+        if (isManager) { then(null); return; }
+        setPinRequest({ summary, then });
+    };
+
+    const applyDiscount = (index: number, adjustment: LineAdjustment) => {
+        const line = basket[index];
+        const label = adjustment.kind === 'percent' ? `${adjustment.value}% off ${line.product.name}` : `${line.product.name} at ${money(adjustment.value)}`;
+        withApproval(label, (a) => {
+            if (a) setApproval({ token: a.approvalToken, name: a.approver.name, expiresAt: Date.now() + a.expiresInSeconds * 1000 - 5000 });
+            // a discounted quantity is split off so the rest of the line keeps its price
+            setBasket(prev => prev.map((l, i) => (i === index ? { ...l, adjustment } : l)));
+            setDiscountIndex(null);
+            toast.success('Discount applied');
+        });
+    };
+
+    const removeDiscount = (index: number) => {
+        setBasket(prev => {
+            const without = prev.map((l, i) => (i === index ? { ...l, adjustment: undefined } : l));
+            const line = without[index];
+            const twin = without.findIndex((l, i) => i !== index && l.product.id === line.product.id && !l.adjustment);
+            if (twin === -1) return without;
+            return without.flatMap((l, i) => (i === twin ? [{ ...l, quantity: round3(l.quantity + line.quantity) }] : i === index ? [] : [l]));
+        });
+        setDiscountIndex(null);
+    };
+
+    const startPayment = () => {
+        if (hasAdjustments(basket) && !isManager && !approvalValid) {
+            setPinRequest({
+                summary: 'the discounts on this sale',
+                then: (a) => { setApproval({ token: a.approvalToken, name: a.approver.name, expiresAt: Date.now() + a.expiresInSeconds * 1000 - 5000 }); setShowPayment(true); },
+            });
+            return;
+        }
+        setShowPayment(true);
+    };
+
     const completeSale = async (payments: PaymentInput[]) => {
         setSubmitting(true);
         try {
             const sale = await SalesAPI.create(storeId, {
-                items: basket.map(l => ({ productId: l.product.id, quantity: l.quantity })),
+                items: basket.map(l => ({
+                    productId: l.product.id,
+                    quantity: l.quantity,
+                    ...(l.adjustment
+                        ? { [l.adjustment.kind === 'percent' ? 'discountPercent' : 'priceOverride']: l.adjustment.value, reason: l.adjustment.reason }
+                        : {}),
+                })),
                 payments,
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
+                approvalToken: hasAdjustments(basket) && !isManager ? approval?.token : undefined,
             });
             setShowPayment(false);
             setCompletedSale(sale);
@@ -240,7 +297,7 @@ export const Till = () => {
     }
 
     const restrictedAge = highestAge(basket);
-    const canRefund = [UserRole.MANAGER, UserRole.TENANT_ADMIN, UserRole.SUPER_ADMIN].includes(user?.role as UserRole);
+    const canRefund = isManager;
 
     if (shift === undefined) {
         return <div className="p-10 text-center text-gray-500" role="status">Loading till…</div>;
@@ -309,10 +366,11 @@ export const Till = () => {
                                 </td></tr>
                             )}
                             {basket.map((l, i) => {
-                                const amt = calcLine(l.product.price, l.quantity, l.product.vatRate);
+                                const unit = unitPriceOf(l);
+                                const amt = calcLine(unit, l.quantity, l.product.vatRate);
                                 const weighed = l.product.unitType === 'weight';
                                 return (
-                                    <tr key={l.product.id} onClick={() => setSelected(i)} aria-selected={selected === i}
+                                    <tr key={`${l.product.id}-${i}`} onClick={() => setSelected(i)} aria-selected={selected === i}
                                         className={`cursor-pointer ${selected === i ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                                         <td className="px-3 py-2.5">
                                             <div className="font-medium text-gray-900 flex items-center gap-1.5">
@@ -320,6 +378,7 @@ export const Till = () => {
                                                 {l.product.ageRestriction > 0 && <span title={`${l.product.ageRestriction}+ only`} className="inline-flex items-center gap-0.5 text-xs text-amber-700"><ShieldAlert className="w-3.5 h-3.5" />{l.product.ageRestriction}+</span>}
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono">{l.product.barcode}</div>
+                                            {l.adjustment && <div className="text-xs text-green-700">Discount: {l.adjustment.kind === 'percent' ? `${l.adjustment.value}% off` : 'price override'} · {l.adjustment.reason}</div>}
                                         </td>
                                         <td className="px-3 py-2.5">
                                             <div className="flex items-center justify-center gap-1">
@@ -328,7 +387,10 @@ export const Till = () => {
                                                 {!weighed && <button type="button" aria-label={`Increase ${l.product.name}`} onClick={(e) => { e.stopPropagation(); changeQty(i, 1); }} className="p-1.5 rounded-md border border-gray-300 hover:bg-gray-100"><Plus className="w-3.5 h-3.5" /></button>}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-2.5 text-right text-gray-600">{money(l.product.price)}{weighed ? '/kg' : ''}</td>
+                                        <td className="px-3 py-2.5 text-right text-gray-600">
+                                            {l.adjustment && <span className="block text-xs text-gray-400 line-through">{money(l.product.price)}</span>}
+                                            {money(unit)}{weighed ? '/kg' : ''}
+                                        </td>
                                         <td className="px-3 py-2.5 text-right text-gray-500">{l.product.vatRate}%</td>
                                         <td className="px-3 py-2.5 text-right font-semibold">{money(amt.lineTotal)}</td>
                                     </tr>
@@ -343,6 +405,7 @@ export const Till = () => {
                         <div>Items: <b className="text-white">{totals.itemCount}</b></div>
                         <div>Subtotal (ex VAT): {money(totals.netTotal)}</div>
                         <div>VAT: {money(totals.vatTotal)}</div>
+                        {totals.discountTotal > 0 && <div className="text-green-400">Discounts: −{money(totals.discountTotal)}</div>}
                     </div>
                     <div className="text-right">
                         <div className="text-xs uppercase tracking-wider text-gray-400">Total</div>
@@ -357,13 +420,14 @@ export const Till = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                     <Button variant="outline" onClick={holdSale} disabled={!basket.length}><PauseCircle className="w-4 h-4 mr-1.5" />Hold</Button>
                     <Button variant="outline" onClick={() => setShowHeld(true)}><PlayCircle className="w-4 h-4 mr-1.5" />Recall{held.length ? ` (${held.length})` : ''}</Button>
                     <Button variant="outline" onClick={voidLine} disabled={selected === null}><XCircle className="w-4 h-4 mr-1.5" />Void line</Button>
+                    <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
                     <Button variant="outline" onClick={() => setConfirmVoidSale(true)} disabled={!basket.length}><Trash2 className="w-4 h-4 mr-1.5" />Void sale</Button>
                     <Button variant="outline" onClick={() => setShowPriceCheck(true)}><Tag className="w-4 h-4 mr-1.5" />Price check</Button>
-                    <Button size="lg" onClick={() => setShowPayment(true)} disabled={!basket.length} className="!text-lg">Pay {basket.length ? money(totals.total) : ''}</Button>
+                    <Button size="lg" onClick={startPayment} disabled={!basket.length} className="!text-lg">Pay {basket.length ? money(totals.total) : ''}</Button>
                 </div>
             </section>
 
@@ -420,6 +484,22 @@ export const Till = () => {
                         if (p.ageRestriction > 0 && !ageVerified) setAgeCheck({ product: p, qty: kg });
                         else setBasket(prev => addToBasket(prev, p, kg));
                     }}
+                />
+            )}
+            {discountIndex !== null && basket[discountIndex] && (
+                <DiscountModal
+                    line={basket[discountIndex]}
+                    onApply={(adj) => applyDiscount(discountIndex, adj)}
+                    onRemove={basket[discountIndex].adjustment ? () => removeDiscount(discountIndex) : undefined}
+                    onClose={() => setDiscountIndex(null)}
+                />
+            )}
+            {pinRequest && (
+                <ManagerPinModal
+                    storeId={storeId}
+                    summary={pinRequest.summary}
+                    onClose={() => setPinRequest(null)}
+                    onApproved={(a) => { const req = pinRequest; setPinRequest(null); req.then(a); }}
                 />
             )}
             {showXReport && <XReportModal storeId={storeId} storeName={storeName} onClose={() => setShowXReport(false)} />}

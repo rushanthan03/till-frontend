@@ -6,6 +6,7 @@ import { fetchRestaurantsByIdRequest, resetUploadedUrls, updateRestaurantsReques
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../app/store';
 import { RestaurantRequestResponse } from '../features/stores/types';
+import { ApprovalPinCard } from '../components/ApprovalPinCard';
 import Appearance from '../sections/Settings/Appearance';
 import { SettingsSkeleton } from '../components/CustomSkeleton';
 import GenaralTab from '../sections/Settings/GenaralTab';
@@ -118,6 +119,7 @@ export const Settings = () => {
       </div>
 
       <div className="px-1 space-y-6">
+        {activeTab === 'general' && ['manager', 'tenant_admin', 'super_admin'].includes(String(user?.role)) && <ApprovalPinCard />}
         {activeTab === 'general' && (
           <GenaralTab restaurantState={storeState} restaurant={restaurant} setRestaurantState={setStoreState} />
         )}

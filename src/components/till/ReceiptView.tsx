@@ -44,10 +44,12 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                 {sale.items.map(i => (
                     <div key={i.id} className="mb-1">
                         <div className="flex justify-between gap-2"><span className="break-words">{i.name}</span><span>{money(i.lineTotal)}</span></div>
+                        {i.originalUnitPrice != null && <div className="text-gray-500 pl-2">Was {money(i.originalUnitPrice)} · {i.adjustmentReason}</div>}
                         {i.quantity !== 1 && <div className="text-gray-500 pl-2">{i.quantity} {Number.isInteger(i.quantity) ? '×' : 'kg @'} {money(i.unitPrice)}{Number.isInteger(i.quantity) ? '' : '/kg'}</div>}
                     </div>
                 ))}
                 <div className="my-2 border-t border-dashed border-gray-400" />
+                {sale.discountTotal > 0 && <div className="flex justify-between"><span>Discounts</span><span>-{money(sale.discountTotal)}</span></div>}
                 <div className="flex justify-between text-base font-bold"><span>TOTAL</span><span>{money(sale.total)}</span></div>
                 {sale.payments.map(p => (
                     <div key={p.id} className="flex justify-between">

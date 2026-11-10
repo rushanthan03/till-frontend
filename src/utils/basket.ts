@@ -6,9 +6,24 @@ import type { Product } from '../features/products/types';
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 export const round3 = (n: number): number => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
+/** A manager-approved price change on one line: a percentage off, or a replacement unit price. */
+export interface LineAdjustment {
+    kind: 'percent' | 'price';
+    value: number;
+    reason: string;
+}
+
 export interface BasketLine {
     product: Product;
     quantity: number;
+    adjustment?: LineAdjustment;
+}
+
+/** Unit price after any discount/override (what the server will charge). */
+export function unitPriceOf(l: BasketLine): number {
+    const a = l.adjustment;
+    if (!a) return l.product.price;
+    return a.kind === 'percent' ? round2(l.product.price * (1 - a.value / 100)) : round2(a.value);
 }
 
 export interface LineAmounts {
@@ -24,16 +39,19 @@ export function calcLine(unitPrice: number, quantity: number, vatRate: number): 
 }
 
 export function basketTotals(lines: BasketLine[]) {
-    const amounts = lines.map(l => calcLine(l.product.price, l.quantity, l.product.vatRate));
+    const amounts = lines.map(l => calcLine(unitPriceOf(l), l.quantity, l.product.vatRate));
     const total = round2(amounts.reduce((a, l) => a + l.lineTotal, 0));
     const vatTotal = round2(amounts.reduce((a, l) => a + l.vatAmount, 0));
     const itemCount = lines.reduce((n, l) => n + (l.product.unitType === 'weight' ? 1 : l.quantity), 0);
-    return { total, vatTotal, netTotal: round2(total - vatTotal), itemCount };
+    const shelfTotal = round2(lines.reduce((a, l) => a + calcLine(l.product.price, l.quantity, l.product.vatRate).lineTotal, 0));
+    return { total, vatTotal, netTotal: round2(total - vatTotal), itemCount, discountTotal: round2(shelfTotal - total) };
 }
 
-/** Adds a product, merging with an existing line of the same product. */
+export const hasAdjustments = (lines: BasketLine[]) => lines.some(l => !!l.adjustment);
+
+/** Adds a product, merging with an existing full-price line of the same product (discounted lines stay separate). */
 export function addToBasket(lines: BasketLine[], product: Product, quantity: number): BasketLine[] {
-    const i = lines.findIndex(l => l.product.id === product.id);
+    const i = lines.findIndex(l => l.product.id === product.id && !l.adjustment);
     if (i === -1) return [...lines, { product, quantity: round3(quantity) }];
     return lines.map((l, idx) => (idx === i ? { ...l, quantity: round3(l.quantity + quantity) } : l));
 }
