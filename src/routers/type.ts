@@ -10,6 +10,8 @@ export enum RouteLinks {
     DEVICE = '/device',
     ATTENDANCE = '/attendance',
     STOCK = '/stock',
+    PURCHASE_ORDERS = '/purchase-orders',
+    SUPPLIERS = '/suppliers',
     PROMOTIONS = '/promotions',
     CUSTOMERS = '/customers',
     PLATFORM_DASHBOARD = '/platform',

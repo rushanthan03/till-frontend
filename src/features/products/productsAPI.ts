@@ -1,5 +1,5 @@
 import axiosClient from "../../api/axiosClient";
-import { DepartmentCount, Product, ProductInput, ProductListParams, ProductListResponse } from "./types";
+import { DepartmentCount, ImportResult, Product, ProductInput, ProductListParams, ProductListResponse } from "./types";
 
 // axiosClient's response interceptor already unwraps `response.data`, so the
 // promises resolve to the payload itself. `unwrap` fixes the typing to match.
@@ -20,6 +20,10 @@ export const ProductsAPI = {
         unwrap<Product>(axiosClient.patch(`/api/products/${id}`, body, { params: { storeId } })),
     archive: (id: string, storeId?: string) =>
         unwrap<Product>(axiosClient.delete(`/api/products/${id}`, { params: { storeId } })),
+    exportAll: (storeId?: string) =>
+        unwrap<Product[]>(axiosClient.get('/api/products/export', { params: { storeId } })),
+    importRows: (storeId: string | undefined, rows: Record<string, string>[], dryRun: boolean) =>
+        unwrap<ImportResult>(axiosClient.post('/api/products/import', { rows, dryRun }, { params: { storeId }, timeout: 120000 })),
     seedDemo: (storeId?: string) =>
         unwrap<{ created: number; skipped: number }>(axiosClient.post('/api/products/seed-demo', null, { params: { storeId } })),
 };

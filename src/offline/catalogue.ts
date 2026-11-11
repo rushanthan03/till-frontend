@@ -32,7 +32,15 @@ const cachedProducts = (storeId: string) => idb.getAllByIndex<Cached>('products'
 
 export async function cachedBarcode(storeId: string, code: string): Promise<Product | null> {
     const c = code.trim().toLowerCase();
-    return (await cachedProducts(storeId)).find(p => p.barcode.toLowerCase() === c || p.sku?.toLowerCase() === c) ?? null;
+    const all = await cachedProducts(storeId);
+    const main = all.find(p => p.barcode.toLowerCase() === c);
+    if (main) return { ...main, scanQuantity: 1, scanLabel: null };
+    for (const p of all) {
+        const pack = p.barcodes?.find(b => b.barcode.toLowerCase() === c);
+        if (pack) return { ...p, scanQuantity: pack.packQuantity, scanLabel: pack.label };
+    }
+    const bySku = all.find(p => p.sku?.toLowerCase() === c);
+    return bySku ? { ...bySku, scanQuantity: 1, scanLabel: null } : null;
 }
 export async function cachedSearch(storeId: string, term: string, limit: number): Promise<Product[]> {
     const t = term.trim().toLowerCase();

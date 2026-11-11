@@ -9,7 +9,7 @@ const product = (id: string, name: string, barcode: string, department: string, 
 const catalogue = [
     product('1', 'Whole Milk 2L', '5000000000011', 'Dairy'),
     product('2', 'Semi Skimmed Milk 1L', '5000000000028', 'Dairy', { sku: 'MLK-1' }),
-    product('3', 'White Loaf', '5000000000035', 'Bakery'),
+    product('3', 'White Loaf', '5000000000035', 'Bakery', { barcodes: [{ barcode: '5000000000042', packQuantity: 6, label: 'Six pack' }] }),
 ];
 
 vi.mock('../features/products/productsAPI', () => ({
@@ -29,6 +29,11 @@ describe('offline catalogue', () => {
         expect((await cachedBarcode('s1', '5000000000011'))?.name).toBe('Whole Milk 2L');
         expect((await cachedBarcode('s1', 'mlk-1'))?.id).toBe('2');
         expect(await cachedBarcode('s1', '0000')).toBeNull();
+    });
+    it('finds pack barcodes and says how many units one scan adds', async () => {
+        const p = await cachedBarcode('s1', '5000000000042');
+        expect([p?.id, p?.scanQuantity, p?.scanLabel]).toEqual(['3', 6, 'Six pack']);
+        expect((await cachedBarcode('s1', '5000000000035'))?.scanQuantity).toBe(1);
     });
     it('searches by name', async () => {
         expect((await cachedSearch('s1', 'milk', 10)).map(p => p.id)).toEqual(['1', '2']);

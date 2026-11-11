@@ -1,5 +1,12 @@
 export type ProductUnitType = 'each' | 'weight';
 
+/** An extra barcode, e.g. a multipack or case: one scan adds packQuantity units. */
+export interface ProductBarcode {
+    barcode: string;
+    packQuantity: number;
+    label: string | null;
+}
+
 export interface Product {
     id: string;
     storeId: string;
@@ -21,11 +28,33 @@ export interface Product {
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
+    barcodes?: ProductBarcode[];
+    /** Usual supplier, used for reorder suggestions. */
+    supplierId?: string | null;
+    /** Set on barcode lookups: units one scan of that barcode adds. */
+    scanQuantity?: number;
+    scanLabel?: string | null;
 }
 
 export type ProductInput = Partial<
-    Pick<Product, 'sku' | 'category' | 'brand' | 'unitType' | 'costPrice' | 'vatRate' | 'ageRestriction' | 'stockQuantity' | 'reorderLevel' | 'imageUrl' | 'isActive'>
-> & Pick<Product, 'name' | 'barcode' | 'department' | 'price'>;
+    Pick<Product, 'sku' | 'category' | 'brand' | 'unitType' | 'costPrice' | 'vatRate' | 'ageRestriction' | 'stockQuantity' | 'reorderLevel' | 'imageUrl' | 'isActive' | 'supplierId'>
+> & Pick<Product, 'name' | 'barcode' | 'department' | 'price'> & { barcodes?: { barcode: string; packQuantity: number; label?: string }[] };
+
+export type ImportAction = 'create' | 'update' | 'unchanged' | 'error';
+export interface ImportRowResult {
+    line: number;
+    barcode: string;
+    name: string | null;
+    action: ImportAction;
+    changes: string[];
+    errors: string[];
+    warnings: string[];
+}
+export interface ImportResult {
+    dryRun: boolean;
+    summary: Record<ImportAction, number>;
+    rows: ImportRowResult[];
+}
 
 export interface ProductListParams {
     storeId?: string;

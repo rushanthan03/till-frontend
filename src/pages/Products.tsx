@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Package, Plus, Search, Pencil, Archive, Database, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Package, Plus, Search, Pencil, Archive, Database, AlertTriangle, ShieldAlert, Download, Upload, FileText, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -11,7 +11,21 @@ import { useAuth } from '../hooks/useAuth';
 import { handleApiError } from '../api/handleApiError';
 import { money } from '../utils/money';
 import { ProductsAPI } from '../features/products/productsAPI';
-import { DepartmentCount, Product, ProductInput } from '../features/products/types';
+import { DepartmentCount, Product, ProductBarcode, ProductInput } from '../features/products/types';
+import { ImportProductsModal } from '../components/products/ImportProductsModal';
+import { downloadCsv } from '../utils/csv';
+import { SuppliersAPI } from '../features/purchasing/purchasingAPI';
+import type { Supplier } from '../features/purchasing/types';
+
+// Same columns the import reads, so an export can be edited and imported back.
+const CSV_HEADER = ['barcode', 'name', 'department', 'price', 'vatRate', 'unitType', 'sku', 'category', 'brand',
+    'costPrice', 'ageRestriction', 'stockQuantity', 'reorderLevel', 'isActive', 'extraBarcodes'];
+const formatPacks = (list: ProductBarcode[] = []) =>
+    list.map(b => [b.barcode, b.packQuantity, b.label].filter(x => x !== null && x !== '').join(':')).join('; ');
+const csvRow = (p: Product) => [p.barcode, p.name, p.department, p.price, p.vatRate, p.unitType, p.sku, p.category, p.brand,
+    p.costPrice, p.ageRestriction, p.stockQuantity, p.reorderLevel, p.isActive ? 'yes' : 'no', formatPacks(p.barcodes)];
+
+interface PackForm { barcode: string; packQuantity: string; label: string }
 
 const VAT_OPTIONS = [
     { value: '0', label: '0% (zero-rated)' },
@@ -45,11 +59,13 @@ interface FormState {
     stockQuantity: string;
     reorderLevel: string;
     isActive: boolean;
+    barcodes: PackForm[];
+    supplierId: string;
 }
 
 const emptyForm: FormState = {
     name: '', barcode: '', sku: '', department: '', category: '', brand: '', unitType: 'each',
-    price: '', costPrice: '', vatRate: '20', ageRestriction: '0', stockQuantity: '0', reorderLevel: '0', isActive: true,
+    price: '', costPrice: '', vatRate: '20', ageRestriction: '0', stockQuantity: '0', reorderLevel: '0', isActive: true, barcodes: [], supplierId: '',
 };
 
 const toForm = (p: Product): FormState => ({
@@ -57,6 +73,8 @@ const toForm = (p: Product): FormState => ({
     brand: p.brand ?? '', unitType: p.unitType, price: String(p.price), costPrice: p.costPrice === null ? '' : String(p.costPrice),
     vatRate: String(p.vatRate), ageRestriction: String(p.ageRestriction), stockQuantity: String(p.stockQuantity),
     reorderLevel: String(p.reorderLevel), isActive: p.isActive,
+    supplierId: p.supplierId ?? '',
+    barcodes: (p.barcodes ?? []).map(b => ({ barcode: b.barcode, packQuantity: String(b.packQuantity), label: b.label ?? '' })),
 });
 
 const toPayload = (f: FormState): ProductInput => ({
@@ -74,6 +92,10 @@ const toPayload = (f: FormState): ProductInput => ({
     stockQuantity: Number(f.stockQuantity || 0),
     reorderLevel: Number(f.reorderLevel || 0),
     isActive: f.isActive,
+    supplierId: f.supplierId || null,
+    barcodes: f.barcodes
+        .filter(b => b.barcode.trim())
+        .map(b => ({ barcode: b.barcode.trim(), packQuantity: Number(b.packQuantity || 1), label: b.label.trim() || undefined })),
 });
 
 export const Products = () => {
@@ -99,6 +121,13 @@ export const Products = () => {
     const [form, setForm] = useState<FormState>(emptyForm);
     const [saving, setSaving] = useState(false);
     const [archiveTarget, setArchiveTarget] = useState<Product | null>(null);
+    const [importOpen, setImportOpen] = useState(false);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+    useEffect(() => {
+        if (storeId) SuppliersAPI.list(storeId, { status: 'all' }).then(setSuppliers).catch(() => setSuppliers([]));
+    }, [storeId]);
+    const [exporting, setExporting] = useState(false);
 
     // debounce the search box
     useEffect(() => {
@@ -174,6 +203,29 @@ export const Products = () => {
         }
     };
 
+    const setPack = (i: number, key: keyof PackForm, value: string) =>
+        setForm(prev => ({ ...prev, barcodes: prev.barcodes.map((b, idx) => (idx === i ? { ...b, [key]: value } : b)) }));
+    const addPack = () => setForm(prev => ({ ...prev, barcodes: [...prev.barcodes, { barcode: '', packQuantity: prev.unitType === 'weight' ? '1' : '6', label: '' }] }));
+    const removePack = (i: number) => setForm(prev => ({ ...prev, barcodes: prev.barcodes.filter((_, idx) => idx !== i) }));
+
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            const all = await ProductsAPI.exportAll(storeId);
+            downloadCsv(`products-${new Date().toISOString().slice(0, 10)}.csv`, CSV_HEADER, all.map(csvRow));
+            toast.success(`Exported ${all.length} products`);
+        } catch (error) {
+            toast.error(handleApiError(error));
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleTemplate = () => downloadCsv('product-import-template.csv', CSV_HEADER, [
+        ['5012345678900', 'Example Cola 330ml', 'Drinks', 0.85, 20, 'each', 'DRK-001', 'Soft drinks', 'Example', 0.4, 0, 48, 12, 'yes', '5012345678917:6:Six pack; 5012345678924:24:Case'],
+        ['2000000000015', 'Example Bananas', 'Fruit & Veg', 0.99, 0, 'weight', '', '', '', 0.5, 0, 10, 2, 'yes', ''],
+    ]);
+
     const handleSeed = async () => {
         try {
             const res = await ProductsAPI.seedDemo(storeId);
@@ -204,7 +256,19 @@ export const Products = () => {
                 </div>
             ),
         },
-        { key: 'barcode', label: 'Barcode', render: (p: Product) => <span className="font-mono text-sm">{p.barcode}</span> },
+        {
+            key: 'barcode', label: 'Barcode',
+            render: (p: Product) => (
+                <div>
+                    <span className="font-mono text-sm">{p.barcode}</span>
+                    {!!p.barcodes?.length && (
+                        <div className="text-xs text-gray-500" title={formatPacks(p.barcodes)}>
+                            +{p.barcodes.length} more ({p.barcodes.map(b => (b.packQuantity > 1 ? `×${b.packQuantity}` : '×1')).join(', ')})
+                        </div>
+                    )}
+                </div>
+            ),
+        },
         { key: 'department', label: 'Department' },
         {
             key: 'price', label: 'Price (inc VAT)',
@@ -257,7 +321,10 @@ export const Products = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Products</h1>
                     <p className="text-gray-500 mt-1">Barcodes, prices, VAT and stock levels for this store.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={handleTemplate}><FileText className="w-4 h-4 mr-2" />Template</Button>
+                    <Button variant="outline" onClick={handleExport} isLoading={exporting}><Download className="w-4 h-4 mr-2" />Export</Button>
+                    <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="w-4 h-4 mr-2" />Import</Button>
                     <Button variant="outline" onClick={handleSeed}><Database className="w-4 h-4 mr-2" />Load demo products</Button>
                     <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Add product</Button>
                 </div>
@@ -327,6 +394,25 @@ export const Products = () => {
                         </div>
                         <Input label="Stock quantity" type="number" step="0.001" min="0" value={form.stockQuantity} onChange={onText('stockQuantity')} />
                         <Input label="Reorder level" type="number" step="0.001" min="0" value={form.reorderLevel} onChange={onText('reorderLevel')} />
+                        <Select label="Usual supplier" value={form.supplierId} onChange={onText('supplierId')}
+                            options={[{ value: '', label: 'None' }, ...suppliers.filter(x => x.isActive || x.id === form.supplierId).map(x => ({ value: x.id, label: x.name }))]} />
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <div className="font-semibold text-gray-900 text-sm">Extra barcodes and pack sizes</div>
+                                <div className="text-xs text-gray-500">E.g. the six-pack or case barcode. One scan adds that many units at the unit price.</div>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={addPack}><Plus className="w-4 h-4 mr-1" />Add barcode</Button>
+                        </div>
+                        {form.barcodes.map((b, i) => (
+                            <div key={i} className="grid grid-cols-[1fr_110px_1fr_auto] gap-2 items-end">
+                                <Input label={i === 0 ? 'Barcode' : undefined} aria-label="Extra barcode" value={b.barcode} onChange={(e) => setPack(i, 'barcode', e.target.value)} placeholder="Scan or type" />
+                                <Input label={i === 0 ? 'Units per scan' : undefined} aria-label="Units per scan" type="number" min="1" max={form.unitType === 'weight' ? '1' : '999'} step="1" value={b.packQuantity} onChange={(e) => setPack(i, 'packQuantity', e.target.value)} />
+                                <Input label={i === 0 ? 'Label' : undefined} aria-label="Pack label" value={b.label} onChange={(e) => setPack(i, 'label', e.target.value)} placeholder="Six pack, Case…" />
+                                <button type="button" aria-label="Remove barcode" onClick={() => removePack(i)} className="p-2 mb-1 rounded-lg hover:bg-red-50 text-red-600"><X className="w-4 h-4" /></button>
+                            </div>
+                        ))}
                     </div>
                     <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                         <input type="checkbox" checked={form.isActive} onChange={(e) => setField('isActive', e.target.checked)} className="w-4 h-4" />
@@ -338,6 +424,8 @@ export const Products = () => {
                     </div>
                 </form>
             </Modal>
+
+            <ImportProductsModal isOpen={importOpen} storeId={storeId} onClose={() => setImportOpen(false)} onImported={load} />
 
             <Modal isOpen={!!archiveTarget} onClose={() => setArchiveTarget(null)} title="Archive product" size="sm">
                 <p className="text-gray-700">

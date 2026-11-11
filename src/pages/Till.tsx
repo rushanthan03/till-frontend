@@ -233,7 +233,10 @@ export const Till = () => {
         setInput(''); setResults([]);
         try {
             const product = await lookupBarcode(storeId, code);
-            addProduct(product, qty);
+            // A multipack or case barcode adds that many units.
+            const pack = product.scanQuantity && product.scanQuantity > 1 ? product.scanQuantity : 1;
+            if (pack > 1) toast.info(`${product.scanLabel || `Pack of ${pack}`}: ${qty * pack} × ${product.name}`);
+            addProduct(product, qty * pack);
         } catch (error) {
             if (hadSeveralMatches) { setInput(code); toast.info('Pick a product from the list'); return; }
             toast.error(handleApiError(error));
