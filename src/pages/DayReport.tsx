@@ -79,6 +79,7 @@ export const DayReportPage = () => {
                                     <Line label="Net sales" value={money(t.netSales)} bold />
                                     <Line label="of which VAT" value={money(t.vat)} />
                                     <Line label="Discounts given" value={money(report.discountTotal)} />
+                                    <Line label={`Loyalty points used (${t.pointsRedeemed ?? 0})`} value={money(t.pointsDiscount ?? 0)} />
                                 </section>
                                 <section className="bg-white rounded-xl border border-gray-200 p-4 text-sm">
                                     <h2 className="font-semibold text-gray-900 mb-2">Takings by tender</h2>

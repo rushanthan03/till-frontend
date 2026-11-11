@@ -86,6 +86,7 @@ function buildReceipt(r, opts = {}) {
 
   if (!r.gift) {
     if (r.discountTotal > 0) d.text(twoCol('Discounts', `-${money(r.discountTotal)}`, width));
+    if (r.points && r.points.value > 0) d.text(twoCol(`Points used (${r.points.points})`, `-${money(r.points.value)}`, width));
     d.bold(true).text(twoCol('TOTAL', money(r.total), width)).bold(false);
     for (const p of r.payments || []) d.text(twoCol(p.label, money(p.amount), width));
     if (r.change > 0) d.text(twoCol('Change', money(r.change), width));

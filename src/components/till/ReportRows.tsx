@@ -28,6 +28,9 @@ interface Figures {
     paidOut?: number;
     safeDrops?: number;
     noSales?: number;
+    /** Loyalty points spent (a discount, already out of gross sales). */
+    pointsDiscount?: number;
+    pointsRedeemed?: number;
 }
 
 /** Shared body for the X report (running) and the Z report (final). */
@@ -52,6 +55,7 @@ export function ReportView({ title, storeName, cashier, opened, closed, openingF
                 <Row label={`Refunds (${figures.refundCount})`} value={out(figures.refundsTotal)} />
                 <Row label="Net sales" value={money(figures.netSales)} bold />
                 <Row label="of which VAT" value={money(figures.vat)} />
+                {!!figures.pointsDiscount && <Row label={`Points used (${figures.pointsRedeemed ?? 0})`} value={money(figures.pointsDiscount)} />}
                 <Divider />
                 <Row label="Cash sales" value={money(figures.cashSales)} />
                 <Row label="Card sales" value={money(figures.cardSales)} />

@@ -94,7 +94,8 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
                 items: selected.map(l => ({ saleItemId: l.item.id, quantity: l.q, disposition: disp[l.item.id] ?? 'restock' })),
                 reason,
                 note: note.trim() || undefined,
-                payments: [{ method, amount: total, reference: method === 'card' ? `SIM-RF-${Math.random().toString(36).slice(2, 8).toUpperCase()}` : undefined }],
+                // Goods paid for entirely with points: nothing to pay back, only the points.
+                payments: total > 0 ? [{ method, amount: total, reference: method === 'card' ? `SIM-RF-${Math.random().toString(36).slice(2, 8).toUpperCase()}` : undefined }] : [],
             });
             setRefund(done);
             setStep('done');
@@ -192,7 +193,8 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
             {step === 'pay' && sale && (
                 <div className="space-y-4">
                     <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm text-gray-700">
-                        Original payment: {sale.payments.map(p => `${p.method === 'cash' ? 'Cash' : 'Card'} ${money(p.amount)}`).join(' + ')}
+                        Original payment: {sale.payments.map(p => `${p.method === 'cash' ? 'Cash' : 'Card'} ${money(p.amount)}`).join(' + ') || 'none'}
+                        {(sale.pointsRedeemed ?? 0) > 0 && <> · {sale.pointsRedeemed} loyalty points ({money(sale.pointsDiscount ?? 0)}). Points spent on the returned goods go back to the customer.</>}
                     </div>
                     <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Refund method">
                         {(['cash', 'card'] as const).map(m => (
@@ -221,6 +223,7 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
                             {refund.payments.map(p => `${p.method === 'cash' ? 'Cash' : 'Card'} ${money(p.amount)}`).join(' + ')}
                             {refund.payments.some(p => p.method === 'cash') ? ' — give the customer the cash from the drawer' : ''}
                         </div>
+                        {(refund.pointsReturned ?? 0) > 0 && <div className="text-sm font-semibold text-blue-800">{refund.pointsReturned} loyalty points given back</div>}
                         <div className="flex flex-col gap-2 pt-2">
                             <Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Print refund receipt</Button>
                             <Button size="lg" onClick={onClose}>Done</Button>

@@ -12,6 +12,7 @@ function receiptHtml(r) {
   }).join('');
   const totals = r.gift ? '' : `
     ${r.discountTotal > 0 ? `<div class="row"><span>Discounts</span><span>-${money(r.discountTotal)}</span></div>` : ''}
+    ${r.points && r.points.value > 0 ? `<div class="row"><span>Points used (${r.points.points})</span><span>-${money(r.points.value)}</span></div>` : ''}
     <div class="row b"><span>TOTAL</span><span>${money(r.total)}</span></div>
     ${(r.payments || []).map((p) => `<div class="row"><span>${esc(p.label)}</span><span>${money(p.amount)}</span></div>`).join('')}
     ${r.change > 0 ? `<div class="row"><span>Change</span><span>${money(r.change)}</span></div>` : ''}

@@ -25,6 +25,7 @@ export function buildReceiptPayload(sale: Sale, storeName: string, storeAddress?
             note: i.promoDiscount > 0 ? `${i.promotionName}: -£${i.promoDiscount.toFixed(2)}` : i.originalUnitPrice != null ? `Was £${i.originalUnitPrice.toFixed(2)} (${i.adjustmentReason})` : undefined,
         })),
         discountTotal: sale.discountTotal ?? 0,
+        points: sale.pointsRedeemed ? { points: sale.pointsRedeemed, value: sale.pointsDiscount ?? 0 } : undefined,
         total: sale.total,
         vatRows: [...vat.entries()].sort((a, b) => a[0] - b[0]).map(([rate, v]) => ({ rate, net: Math.round(v.net * 100) / 100, vat: Math.round(v.vat * 100) / 100 })),
         payments: sale.payments.map(p => ({ label: p.method === 'cash' ? 'Cash' : 'Card', amount: p.method === 'cash' && p.tendered ? p.tendered : p.amount })),

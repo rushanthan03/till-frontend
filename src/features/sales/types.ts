@@ -15,6 +15,8 @@ export interface SaleItem {
     ageRestriction: number;
     promoDiscount: number;
     promotionName: string | null;
+    /** This line's share of loyalty points spent (already out of lineTotal). */
+    pointsDiscount?: number;
     originalUnitPrice: number | null;
     adjustmentReason: string | null;
     refundedQuantity: number;
@@ -45,6 +47,9 @@ export interface Sale {
     discountTotal: number;
     customerName: string | null;
     pointsEarned: number;
+    /** Loyalty points spent on the sale and what they took off. */
+    pointsRedeemed?: number;
+    pointsDiscount?: number;
     approvedByName: string | null;
     ageVerified: boolean;
     items: SaleItem[];

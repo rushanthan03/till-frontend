@@ -29,6 +29,8 @@ export interface Refund {
     note: string | null;
     total: number;
     vatTotal: number;
+    /** Loyalty points given back (the goods were partly paid for with points). */
+    pointsReturned?: number;
     processedByName: string | null;
     createdAt: string;
     items: { id: string; name: string; quantity: number; lineTotal: number; vatAmount: number; disposition: RefundDisposition }[];

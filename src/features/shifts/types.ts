@@ -44,6 +44,8 @@ export interface XReport {
     paidOut: number;
     safeDrops: number;
     noSales: number;
+    pointsDiscount?: number;
+    pointsRedeemed?: number;
     expectedCash: number;
     varianceNoteThreshold: number;
 }
@@ -120,7 +122,7 @@ export interface DayReport {
     totals: {
         transactions: number; refundCount: number; grossSales: number; refundsTotal: number; netSales: number; vat: number;
         cashSales: number; cardSales: number; cashRefunds: number; cardRefunds: number;
-        paidIn: number; paidOut: number; safeDrops: number; noSales: number;
+        paidIn: number; paidOut: number; safeDrops: number; noSales: number; pointsDiscount?: number; pointsRedeemed?: number;
         expectedCash: number; countedCash: number; variance: number;
     };
     shifts: {

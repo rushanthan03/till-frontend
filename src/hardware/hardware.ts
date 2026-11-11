@@ -23,6 +23,8 @@ export interface ReceiptPayload {
     gift?: boolean;
     lines: { name: string; quantity: number; total: number; note?: string }[];
     discountTotal: number;
+    /** Loyalty points spent, e.g. { points: 250, value: 2.5 } */
+    points?: { points: number; value: number };
     total: number;
     vatRows: { rate: number; net: number; vat: number }[];
     payments: { label: string; amount: number }[];

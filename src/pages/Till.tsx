@@ -1,9 +1,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, Clock, X as XIcon } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, Clock, X as XIcon, Gift } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { PaymentModal } from '../components/till/PaymentModal';
+import { PointsModal } from '../components/till/PointsModal';
+import { pointsValue, totalsWithPoints } from '../utils/loyalty';
 import { AgeCheckModal } from '../components/till/AgeCheckModal';
 import { WeightModal } from '../components/till/WeightModal';
 import { HeldSalesModal, HeldSale } from '../components/till/HeldSalesModal';
@@ -125,8 +127,18 @@ export const Till = () => {
     const [held, setHeld] = useState<HeldSale[]>(() => (storeId ? readHeld(storeId) : []));
 
     const inputRef = useRef<HTMLInputElement>(null);
-    const totals = useMemo(() => basketTotals(basket, promos), [basket, promos]);
-    const modalOpen = !!(showSyncProblems || showCustomer || showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
+    // Loyalty points the customer is spending on this sale (0 = none). They come off the goods' prices.
+    const [redeemPoints, setRedeemPoints] = useState(0);
+    const [showPoints, setShowPoints] = useState(false);
+    const baseTotals = useMemo(() => basketTotals(basket, promos), [basket, promos]);
+    const totals = useMemo(() => totalsWithPoints(basket, promos, redeemPoints), [basket, promos, redeemPoints]);
+    // Points stop applying if the customer is removed, the till goes offline or the bill drops below their value.
+    useEffect(() => {
+        if (!redeemPoints) return;
+        if (!customer || !online) { setRedeemPoints(0); return; }
+        if (pointsValue(redeemPoints) > baseTotals.total) { setRedeemPoints(0); toast.info('The bill is now less than the points chosen: choose points again'); }
+    }, [redeemPoints, customer, online, baseTotals.total]);
+    const modalOpen = !!(showPoints || showSyncProblems || showCustomer || showCash || discountIndex !== null || pinRequest || showXReport || showClose || showRefund || ageCheck || weighing || showPayment || showHeld || showPriceCheck || confirmVoidSale || completedSale);
 
     // Keep the scan box focused so a barcode scanner (which "types" the code + Enter) always lands in it.
     useEffect(() => { if (!modalOpen) inputRef.current?.focus(); }, [modalOpen, basket.length]);
@@ -266,14 +278,14 @@ export const Till = () => {
     };
 
     const clearSale = () => {
-        setBasket([]); setSelected(null); setApproval(null); setCustomer(null); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
+        setBasket([]); setSelected(null); setApproval(null); setCustomer(null); setRedeemPoints(0); setAgeVerified(false); setInput(''); setPendingQty(null); setResults([]);
     };
 
     const holdSale = () => {
         if (!basket.length) return;
         const next: HeldSale[] = [
             ...held,
-            { ref: `HOLD-${String(held.length + 1).padStart(2, '0')}-${Date.now().toString().slice(-4)}`, heldAt: new Date().toISOString(), lines: basket, ageVerified, total: totals.total },
+            { ref: `HOLD-${String(held.length + 1).padStart(2, '0')}-${Date.now().toString().slice(-4)}`, heldAt: new Date().toISOString(), lines: basket, ageVerified, total: baseTotals.total },
         ];
         setHeld(next); writeHeld(storeId, next);
         toast.success('Sale held');
@@ -356,12 +368,14 @@ export const Till = () => {
         if (hasAdjustments(basket) && !isManager && !approvalValid) {
             setPinRequest({
                 summary: 'the discounts on this sale',
-                then: (a) => { setApproval({ token: a.approvalToken, name: a.approver.name, expiresAt: Date.now() + a.expiresInSeconds * 1000 - 5000 }); setShowPayment(true); },
+                then: (a) => { setApproval({ token: a.approvalToken, name: a.approver.name, expiresAt: Date.now() + a.expiresInSeconds * 1000 - 5000 }); openPayment(); },
             });
             return;
         }
-        setShowPayment(true);
+        openPayment();
     };
+    /** Points can cover the whole bill: then there is nothing to take and the sale completes straight away. */
+    const openPayment = () => (totals.total === 0 ? void completeSale([]) : setShowPayment(true));
 
     /** Desktop app only: print the receipt and pop the drawer for cash. Never blocks or fails the sale. */
     const autoPrintAndDrawer = async (sale: Sale) => {
@@ -429,11 +443,13 @@ export const Till = () => {
                 payments,
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
                 customerId: customer?.id,
+                redeemPoints: redeemPoints || undefined,
                 approvalToken: hasAdjustments(basket) && !isManager ? approval?.token : undefined,
         };
         /** Server can't be reached: keep the sale on this till and send it later. */
         const saveOffline = async () => {
             if (payments.some(p => p.method === 'card')) { toast.error('Card payments need a connection. Take cash, or wait until the till is back online.'); return; }
+            if (redeemPoints) { toast.error('Spending points needs a connection. Remove the points or wait until the till is back online.'); return; }
             if (hasAdjustments(basket)) { toast.error('Discounts need manager approval online. Remove the discounts or wait until the till is back online.'); return; }
             const receipt = nextProvisionalNumber(storeId);
             await enqueue({ clientRef, storeId, provisionalReceipt: receipt, total: totals.total, createdAt: soldAt, status: 'pending', body: { ...body, soldAt } });
@@ -503,6 +519,11 @@ export const Till = () => {
                         {customer ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
                                 <UserRound className="w-4 h-4" />{customer.name} · {customer.pointsBalance} pts
+                                {online && basket.length > 0 && (
+                                    <button type="button" onClick={() => setShowPoints(true)} className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">
+                                        <Gift className="w-3.5 h-3.5" />{redeemPoints ? `Using ${redeemPoints}` : 'Use points'}
+                                    </button>
+                                )}
                                 <button type="button" aria-label="Remove customer" onClick={() => setCustomer(null)} className="ml-1 text-blue-700 hover:text-blue-900"><XIcon className="w-3.5 h-3.5" /></button>
                             </span>
                         ) : (
@@ -599,6 +620,7 @@ export const Till = () => {
                         <div>Subtotal (ex VAT): {money(totals.netTotal)}</div>
                         <div>VAT: {money(totals.vatTotal)}</div>
                         {totals.discountTotal > 0 && <div className="text-green-400">Discounts: −{money(totals.discountTotal)}</div>}
+                        {totals.pointsDiscount > 0 && <div className="text-green-400">Points ({redeemPoints}): −{money(totals.pointsDiscount)}</div>}
                     </div>
                     <div className="text-right">
                         <div className="text-xs uppercase tracking-wider text-gray-400">Total</div>
@@ -620,7 +642,7 @@ export const Till = () => {
                     <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null || !online}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
                     <Button variant="outline" onClick={() => setConfirmVoidSale(true)} disabled={!basket.length}><Trash2 className="w-4 h-4 mr-1.5" />Void sale</Button>
                     <Button variant="outline" onClick={() => setShowPriceCheck(true)}><Tag className="w-4 h-4 mr-1.5" />Price check</Button>
-                    <Button size="lg" onClick={startPayment} disabled={!basket.length} className="!text-lg">Pay {basket.length ? money(totals.total) : ''}</Button>
+                    <Button size="lg" onClick={startPayment} disabled={!basket.length} className="!text-lg">{basket.length && totals.total === 0 ? 'Complete (points)' : `Pay ${basket.length ? money(totals.total) : ''}`}</Button>
                 </div>
             </section>
 
@@ -710,6 +732,10 @@ export const Till = () => {
                 />
             )}
             {showSyncProblems && <SyncProblemsModal entries={outbox} onClose={() => setShowSyncProblems(false)} />}
+            {showPoints && customer && (
+                <PointsModal isOpen customerName={customer.name} balance={customer.pointsBalance} total={baseTotals.total} current={redeemPoints}
+                    onClose={() => setShowPoints(false)} onApply={(p) => { setRedeemPoints(p); setShowPoints(false); }} />
+            )}
             {showPayment && <PaymentModal storeId={storeId} total={totals.total} cardAvailable={online} isSubmitting={submitting} onClose={() => setShowPayment(false)} onComplete={completeSale} />}
             {showHeld && <HeldSalesModal held={held} onRecall={recall} onDelete={deleteHeld} onClose={() => setShowHeld(false)} />}
             {showPriceCheck && <PriceCheckModal storeId={storeId} onAdd={(p) => addProduct(p, 1)} onClose={() => setShowPriceCheck(false)} />}

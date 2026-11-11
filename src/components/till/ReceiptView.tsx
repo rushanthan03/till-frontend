@@ -51,6 +51,7 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                 ))}
                 <div className="my-2 border-t border-dashed border-gray-400" />
                 {sale.discountTotal > 0 && <div className="flex justify-between"><span>Discounts</span><span>-{money(sale.discountTotal)}</span></div>}
+                {(sale.pointsDiscount ?? 0) > 0 && <div className="flex justify-between"><span>Points used ({sale.pointsRedeemed})</span><span>-{money(sale.pointsDiscount ?? 0)}</span></div>}
                 <div className="flex justify-between text-base font-bold"><span>TOTAL</span><span>{money(sale.total)}</span></div>
                 {sale.payments.map(p => (
                     <div key={p.id} className="flex justify-between">
