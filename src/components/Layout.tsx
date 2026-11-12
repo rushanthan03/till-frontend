@@ -21,7 +21,11 @@ import {
   BarChart3,
   BadgePercent,
   UsersRound,
+  ShieldCheck,
+  ScrollText,
 } from 'lucide-react';
+import { usePermissions } from '../hooks/usePermissions';
+import type { PermissionKey } from '../features/permissions/permissions';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../utils/constants';
 import { NavLink, Outlet } from 'react-router-dom';
@@ -47,8 +51,26 @@ const menuItems: SideMenuListType[] = [
   { id: RouteLinks.ATTENDANCE, label: 'Attendance', icon: Clock },
   { id: RouteLinks.DEVICE, label: 'Device', icon: MonitorSmartphone },
   { id: RouteLinks.USERS, label: 'Staff', icon: Users },
+  { id: RouteLinks.PERMISSIONS, label: 'Permissions', icon: ShieldCheck },
+  { id: RouteLinks.AUDIT_LOG, label: 'Audit log', icon: ScrollText },
   { id: RouteLinks.SETTINGS, label: 'Settings', icon: Settings },
 ];
+
+/** Pages a manager only sees when the company's permissions allow it. */
+const PAGE_PERMISSION: Partial<Record<string, PermissionKey>> = {
+  [RouteLinks.SALES]: 'reports',
+  [RouteLinks.SHIFTS]: 'reports',
+  [RouteLinks.DAY_REPORT]: 'reports',
+  [RouteLinks.REPORTS]: 'reports',
+  [RouteLinks.PRODUCTS]: 'products',
+  [RouteLinks.STOCK]: 'stock',
+  [RouteLinks.PURCHASE_ORDERS]: 'purchasing',
+  [RouteLinks.SUPPLIERS]: 'purchasing',
+  [RouteLinks.PROMOTIONS]: 'promotions',
+  [RouteLinks.CUSTOMERS]: 'customers',
+  [RouteLinks.ATTENDANCE]: 'staff',
+  [RouteLinks.AUDIT_LOG]: 'audit',
+};
 
 const platformMenuItems: SideMenuListType[] = [
   { id: RouteLinks.PLATFORM_DASHBOARD, label: 'Platform Overview', icon: LayoutDashboard },
@@ -142,15 +164,20 @@ export const Layout: FC = () => {
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { can } = usePermissions();
 
   const allowed = useMemo(() => {
     if (isCashier) return [RouteLinks.TILL];
     if (isTenantAdmin || isSuperAdmin) return menuItems.map(item => item.id);
     if (isManager) {
-      return menuItems.map(item => item.id).filter(id => id !== RouteLinks.USERS);
+      return menuItems.map(item => item.id).filter(id => {
+        if (id === RouteLinks.USERS || id === RouteLinks.PERMISSIONS) return false;
+        const needed = PAGE_PERMISSION[id];
+        return !needed || can(needed);
+      });
     }
     return [RouteLinks.TILL];
-  }, [isTenantAdmin, isSuperAdmin, isManager, isCashier]);
+  }, [isTenantAdmin, isSuperAdmin, isManager, isCashier, can]);
 
   // Settings is rendered in the pinned bottom section
   const visibleItems = menuItems.filter(item => allowed.includes(item.id) && item.id !== RouteLinks.SETTINGS);
@@ -158,7 +185,7 @@ export const Layout: FC = () => {
   const operationItems = visibleItems.filter(item =>
     [RouteLinks.TILL, RouteLinks.SALES, RouteLinks.SHIFTS, RouteLinks.DAY_REPORT, RouteLinks.REPORTS].includes(item.id as RouteLinks));
   const managementItems = visibleItems.filter(item =>
-    [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.PURCHASE_ORDERS, RouteLinks.SUPPLIERS, RouteLinks.PROMOTIONS, RouteLinks.CUSTOMERS, RouteLinks.ATTENDANCE, RouteLinks.DEVICE, RouteLinks.USERS].includes(item.id as RouteLinks));
+    [RouteLinks.PRODUCTS, RouteLinks.STOCK, RouteLinks.PURCHASE_ORDERS, RouteLinks.SUPPLIERS, RouteLinks.PROMOTIONS, RouteLinks.CUSTOMERS, RouteLinks.ATTENDANCE, RouteLinks.DEVICE, RouteLinks.USERS, RouteLinks.PERMISSIONS, RouteLinks.AUDIT_LOG].includes(item.id as RouteLinks));
 
   const handleLogout = () => {
     logout();

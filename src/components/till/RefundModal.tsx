@@ -12,6 +12,7 @@ import { SalesAPI } from '../../features/sales/salesAPI';
 import { RefundsAPI } from '../../features/refunds/refundsAPI';
 import type { Sale, SaleItem } from '../../features/sales/types';
 import { REASON_LABELS } from '../../features/refunds/labels';
+import { ManagerPinModal } from './ManagerPinModal';
 import type { Refund, RefundDisposition, RefundReason } from '../../features/refunds/types';
 
 const REASONS = (Object.keys(REASON_LABELS) as RefundReason[]).map(value => ({ value, label: REASON_LABELS[value] }));
@@ -31,10 +32,15 @@ const estimate = (i: SaleItem, qty: number) =>
 interface Props {
     storeId: string;
     storeName: string;
+    /** The company says this person's refunds need a manager's PIN. */
+    needsPin?: boolean;
+    /** Signed-in user, to show who approved when it was someone else. */
+    userName?: string;
     onClose: () => void;
 }
 
-export function RefundModal({ storeId, storeName, onClose }: Props) {
+export function RefundModal({ storeId, storeName, needsPin, userName, onClose }: Props) {
+    const [askPin, setAskPin] = useState(false);
     const [step, setStep] = useState<Step>('find');
     const [query, setQuery] = useState('');
     const [sales, setSales] = useState<Sale[]>([]);
@@ -85,11 +91,18 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
         setQty(next);
     };
 
-    const submit = async () => {
+    const submit = () => {
+        if (!sale) return;
+        if (needsPin) { setAskPin(true); return; }
+        void send();
+    };
+
+    const send = async (approvalToken?: string) => {
         if (!sale) return;
         setBusy(true);
         try {
             const done = await RefundsAPI.create(storeId, {
+                approvalToken,
                 saleId: sale.id,
                 items: selected.map(l => ({ saleItemId: l.item.id, quantity: l.q, disposition: disp[l.item.id] ?? 'restock' })),
                 reason,
@@ -224,6 +237,7 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
                             {refund.payments.some(p => p.method === 'cash') ? ' — give the customer the cash from the drawer' : ''}
                         </div>
                         {(refund.pointsReturned ?? 0) > 0 && <div className="text-sm font-semibold text-blue-800">{refund.pointsReturned} loyalty points given back</div>}
+                        {refund.approvedByName && refund.approvedByName !== userName && <div className="text-sm text-gray-600">Approved by {refund.approvedByName}</div>}
                         <div className="flex flex-col gap-2 pt-2">
                             <Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Print refund receipt</Button>
                             <Button size="lg" onClick={onClose}>Done</Button>
@@ -248,6 +262,10 @@ export function RefundModal({ storeId, storeName, onClose }: Props) {
                         </div>
                     </>
                 </div>
+            )}
+            {askPin && sale && (
+                <ManagerPinModal storeId={storeId} summary={`refund of ${money(total)} on ${sale.receiptNumber}`}
+                    onApproved={(a) => { setAskPin(false); void send(a.approvalToken); }} onClose={() => setAskPin(false)} />
             )}
         </Modal>
     );

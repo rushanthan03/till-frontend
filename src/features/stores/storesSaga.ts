@@ -19,7 +19,10 @@ function* fetchRestaurantsByIdSage({ payload: arg }: PayloadAction<RestaurantAll
 function* fetchAllRestaurantsByTenantSage({ payload: arg }: PayloadAction<RestaurantAllRequestByTenant>): Generator<CallEffect | PutEffect, void, AllRestaurantResponse> {
     try {
         const response = yield call(RestaurantsAPI.fetchAllRestaurantsByTenant, arg)
-        yield putResolve(fetchAllRestaurantsByTenantSuccess(response.data.data))
+        // The axios client already unwraps the body, so the list is `data` (older callers expected `data.data`).
+        const body = response as unknown as { data?: Restaurant[] | { data?: Restaurant[] } };
+        const list = Array.isArray(body?.data) ? body.data : body?.data?.data ?? [];
+        yield putResolve(fetchAllRestaurantsByTenantSuccess(list))
     } catch (error) {
         yield put(fetchAllRestaurantsByTenantFaliure(handleApiError(error)))
     }

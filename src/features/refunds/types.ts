@@ -14,6 +14,7 @@ export interface RefundPaymentInput {
 }
 
 export interface CreateRefundInput {
+    approvalToken?: string;
     saleId: string;
     items: RefundItemInput[];
     reason: RefundReason;
@@ -32,6 +33,7 @@ export interface Refund {
     /** Loyalty points given back (the goods were partly paid for with points). */
     pointsReturned?: number;
     processedByName: string | null;
+    approvedByName?: string | null;
     createdAt: string;
     items: { id: string; name: string; quantity: number; lineTotal: number; vatAmount: number; disposition: RefundDisposition }[];
     payments: { id: string; method: 'cash' | 'card'; amount: number; reference: string | null }[];

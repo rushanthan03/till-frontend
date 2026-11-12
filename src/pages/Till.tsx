@@ -36,7 +36,7 @@ import { money } from '../utils/money';
 import { BasketLine, LineAdjustment, addToBasket, basketTotals, lineAmounts, hasAdjustments, highestAge, needsAgeCheck, round2, round3, unitPriceOf } from '../utils/basket';
 import { SalesAPI } from '../features/sales/salesAPI';
 import { ShiftsAPI } from '../features/shifts/shiftsAPI';
-import { UserRole } from '../utils/constants';
+import { usePermissions } from '../hooks/usePermissions';
 import type { DepartmentCount, Product } from '../features/products/types';
 import type { PaymentInput, Sale } from '../features/sales/types';
 import type { CashMovementType, Shift } from '../features/shifts/types';
@@ -59,6 +59,7 @@ const KEYPAD = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'];
 
 export const Till = () => {
     const { user } = useAuth();
+    const { level } = usePermissions();
     const storeId =
         localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
     const storeName = user?.restaurant?.name || 'Store';
@@ -305,12 +306,14 @@ export const Till = () => {
         setHeld(next); writeHeld(storeId, next);
     };
 
-    const isManager = [UserRole.MANAGER, UserRole.TENANT_ADMIN, UserRole.SUPER_ADMIN].includes(user?.role as UserRole);
+    // What this person may do is set per company (Permissions page): allowed, needs a manager PIN, or not allowed.
+    const discountLevel = level('discounts');
     const approvalValid = !!approval && approval.expiresAt > Date.now();
 
-    /** Runs `then` once a manager has approved (immediately when the signed-in user is a manager). */
+    /** Runs `then` once a manager has approved (immediately when this person may give discounts themselves). */
     const withApproval = (summary: string, then: (a: Approval | null) => void) => {
-        if (isManager) { then(null); return; }
+        if (discountLevel === 'yes') { then(null); return; }
+        if (discountLevel === 'no') { toast.error('Your role is not allowed to give discounts or change prices'); return; }
         setPinRequest({ summary, then });
     };
 
@@ -357,15 +360,17 @@ export const Till = () => {
                 setSavingCash(false);
             }
         };
-        if (m.type === 'paid_out' && !isManager) {
-            setPinRequest({ summary: `paid out of ${money(m.amount ?? 0)} (${m.reason})`, then: (a) => { void send(a.approvalToken); } });
+        const key = m.type === 'paid_out' ? 'paidOut' : m.type === 'no_sale' ? 'noSale' : null;
+        if (key && level(key) === 'pin') {
+            const summary = m.type === 'paid_out' ? `paid out of ${money(m.amount ?? 0)} (${m.reason})` : `opening the drawer (${m.reason})`;
+            setPinRequest({ summary, then: (a) => { void send(a.approvalToken); } });
             return;
         }
         void send();
     };
 
     const startPayment = () => {
-        if (hasAdjustments(basket) && !isManager && !approvalValid) {
+        if (hasAdjustments(basket) && discountLevel !== 'yes' && !approvalValid) {
             setPinRequest({
                 summary: 'the discounts on this sale',
                 then: (a) => { setApproval({ token: a.approvalToken, name: a.approver.name, expiresAt: Date.now() + a.expiresInSeconds * 1000 - 5000 }); openPayment(); },
@@ -444,7 +449,7 @@ export const Till = () => {
                 ageVerified: needsAgeCheck(basket) ? ageVerified : undefined,
                 customerId: customer?.id,
                 redeemPoints: redeemPoints || undefined,
-                approvalToken: hasAdjustments(basket) && !isManager ? approval?.token : undefined,
+                approvalToken: hasAdjustments(basket) && discountLevel !== 'yes' ? approval?.token : undefined,
         };
         /** Server can't be reached: keep the sale on this till and send it later. */
         const saveOffline = async () => {
@@ -489,7 +494,8 @@ export const Till = () => {
     }
 
     const restrictedAge = highestAge(basket);
-    const canRefund = isManager;
+    const refundLevel = level('refunds');
+    const canRefund = refundLevel !== 'no';
 
     if (shift === undefined) {
         return <div className="p-10 text-center text-gray-500" role="status">Loading till…</div>;
@@ -639,7 +645,7 @@ export const Till = () => {
                     <Button variant="outline" onClick={holdSale} disabled={!basket.length}><PauseCircle className="w-4 h-4 mr-1.5" />Hold</Button>
                     <Button variant="outline" onClick={() => setShowHeld(true)}><PlayCircle className="w-4 h-4 mr-1.5" />Recall{held.length ? ` (${held.length})` : ''}</Button>
                     <Button variant="outline" onClick={voidLine} disabled={selected === null}><XCircle className="w-4 h-4 mr-1.5" />Void line</Button>
-                    <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null || !online}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
+                    <Button variant="outline" onClick={() => setDiscountIndex(selected)} disabled={selected === null || !online || discountLevel === 'no'} title={discountLevel === 'no' ? 'Your role is not allowed to give discounts' : undefined}><Percent className="w-4 h-4 mr-1.5" />Discount</Button>
                     <Button variant="outline" onClick={() => setConfirmVoidSale(true)} disabled={!basket.length}><Trash2 className="w-4 h-4 mr-1.5" />Void sale</Button>
                     <Button variant="outline" onClick={() => setShowPriceCheck(true)}><Tag className="w-4 h-4 mr-1.5" />Price check</Button>
                     <Button size="lg" onClick={startPayment} disabled={!basket.length} className="!text-lg">{basket.length && totals.total === 0 ? 'Complete (points)' : `Pay ${basket.length ? money(totals.total) : ''}`}</Button>
@@ -702,7 +708,9 @@ export const Till = () => {
                 />
             )}
             {showCustomer && <CustomerModal storeId={storeId} onPick={(c) => { setCustomer(c); setShowCustomer(false); }} onClose={() => setShowCustomer(false)} />}
-            {showCash && <CashMovementModal submitting={savingCash} onSubmit={recordMovement} onClose={() => setShowCash(false)} />}
+            {showCash && <CashMovementModal submitting={savingCash} onSubmit={recordMovement} onClose={() => setShowCash(false)}
+                hidden={[...(level('paidOut') === 'no' ? ['paid_out' as const] : []), ...(level('noSale') === 'no' ? ['no_sale' as const] : [])]}
+                needsPin={[...(level('paidOut') === 'pin' ? ['paid_out' as const] : []), ...(level('noSale') === 'pin' ? ['no_sale' as const] : [])]} />}
             {discountIndex !== null && basket[discountIndex] && (
                 <DiscountModal
                     line={basket[discountIndex]}
@@ -720,7 +728,7 @@ export const Till = () => {
                 />
             )}
             {showXReport && <XReportModal storeId={storeId} storeName={storeName} onClose={() => setShowXReport(false)} />}
-            {showRefund && <RefundModal storeId={storeId} storeName={storeName} onClose={() => setShowRefund(false)} />}
+            {showRefund && <RefundModal storeId={storeId} storeName={storeName} needsPin={refundLevel === 'pin'} userName={user?.name} onClose={() => setShowRefund(false)} />}
             {showClose && (
                 <CloseTillModal
                     storeId={storeId}

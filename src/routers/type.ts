@@ -16,6 +16,8 @@ export enum RouteLinks {
     CUSTOMERS = '/customers',
     PLATFORM_DASHBOARD = '/platform',
     USERS = '/users',
+    PERMISSIONS = '/permissions',
+    AUDIT_LOG = '/audit-log',
     SETTINGS = '/settings',
     UNAUTHORIZED = '/unauthorized',
 }

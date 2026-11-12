@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { CustomToastContainer } from './components/CustomToastContainer';
 import { startConnectivityMonitor } from './offline/connectivity';
+import { PermissionsProvider } from './contexts/PermissionsContext';
 
 function App() {
 
@@ -37,7 +38,9 @@ function App() {
     <>
       <BrowserRouter>
         <ThemeProvider theme={muiTheme}>
-          <WebRouter />
+          <PermissionsProvider>
+            <WebRouter />
+          </PermissionsProvider>
         </ThemeProvider>
       </BrowserRouter>
       <CustomToastContainer />
