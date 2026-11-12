@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Percent, Wallet, UserRound, Clock, X as XIcon, Gift } from 'lucide-react';
+import { BarChart3, Delete, Lock, Minus, PauseCircle, PlayCircle, Plus, Printer, ScanBarcode, Search, ShieldAlert, Tag, Trash2, Undo2, XCircle, CheckCircle2, Mail, Percent, Wallet, UserRound, Clock, X as XIcon, Gift } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -11,6 +11,8 @@ import { WeightModal } from '../components/till/WeightModal';
 import { HeldSalesModal, HeldSale } from '../components/till/HeldSalesModal';
 import { PriceCheckModal } from '../components/till/PriceCheckModal';
 import { ReceiptView } from '../components/till/ReceiptView';
+import { EmailReceiptModal } from '../components/till/EmailReceiptModal';
+import { useReceiptPrint } from '../components/till/useReceiptPrint';
 import { OpenTillScreen } from '../components/till/OpenTillScreen';
 import { XReportModal } from '../components/till/XReportModal';
 import { CloseTillModal } from '../components/till/CloseTillModal';
@@ -59,7 +61,7 @@ const KEYPAD = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0'];
 
 export const Till = () => {
     const { user } = useAuth();
-    const { level } = usePermissions();
+    const { level, features } = usePermissions();
     const storeId =
         localStorage.getItem('selectedRestaurantId') || user?.restaurantId || user?.restaurant?.id || '';
     const storeName = user?.restaurant?.name || 'Store';
@@ -399,18 +401,9 @@ export const Till = () => {
         } catch { toast.error('Could not reach the printer'); }
     };
 
-    /** Print button on the sale-complete screen: the real printer when there is one, else the browser dialog. */
-    const printReceipt = async (sale: Sale) => {
-        if (isDesktop()) {
-            const s = await hardware.settings();
-            if (s && s.printMode !== 'off') {
-                const r = await hardware.printReceipt(buildReceiptPayload(sale, storeName, storeAddress), false);
-                if (!r.ok) toast.error(`Receipt not printed: ${r.error}`);
-                return;
-            }
-        }
-        window.print();
-    };
+    /** Print buttons on the sale-complete screen: the real printer when there is one, else the browser dialog. */
+    const receiptPrint = useReceiptPrint(storeName, storeAddress);
+    const [emailReceiptFor, setEmailReceiptFor] = useState<Sale | null>(null);
 
     /** The sale as the till knows it, for a receipt while offline. The server numbers it properly when it syncs. */
     const provisionalSale = (clientRef: string, receiptNumber: string, payments: PaymentInput[], soldAt: string): Sale => {
@@ -771,14 +764,26 @@ export const Till = () => {
                             <div className="text-sm text-gray-600">Receipt {completedSale.receiptNumber}</div>
                             {completedOffline && <div role="status" className="rounded-lg bg-amber-100 text-amber-900 px-3 py-2 text-sm font-medium">Saved offline. It will be sent automatically and get its real receipt number then.</div>}
                             <div className="flex flex-col gap-2 pt-2">
-                                <Button variant="outline" onClick={() => printReceipt(completedSale)}><Printer className="w-4 h-4 mr-2" />Print receipt</Button>
+                                <Button variant="outline" onClick={() => receiptPrint.print(completedSale)}><Printer className="w-4 h-4 mr-2" />Print receipt</Button>
+                                <div className={`grid gap-2 ${features.emailReceipts ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                    <Button variant="outline" onClick={() => receiptPrint.print(completedSale, true)}><Gift className="w-4 h-4 mr-2" />Gift receipt</Button>
+                                    {features.emailReceipts && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setEmailReceiptFor(completedSale)}
+                                            disabled={completedOffline}
+                                            title={completedOffline ? 'Receipts can be emailed from Sales once this sale has been sent' : undefined}
+                                        ><Mail className="w-4 h-4 mr-2" />Email</Button>
+                                    )}
+                                </div>
                                 <Button size="lg" onClick={() => setCompletedSale(null)}>New sale</Button>
                             </div>
                         </div>
-                        <ReceiptView sale={completedSale} storeName={storeName} storeAddress={storeAddress} />
+                        <ReceiptView sale={completedSale} storeName={storeName} storeAddress={storeAddress} gift={receiptPrint.gift} />
                     </div>
                 </Modal>
             )}
+            {emailReceiptFor && <EmailReceiptModal sale={emailReceiptFor} storeId={storeId} onClose={() => setEmailReceiptFor(null)} />}
         </div>
     );
 };

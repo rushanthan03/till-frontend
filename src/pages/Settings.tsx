@@ -1,4 +1,4 @@
-import { Save, Palette, Clock, Store } from 'lucide-react';
+import { Save, Palette, Clock, Store, Receipt } from 'lucide-react';
 import { useLayoutEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -11,13 +11,15 @@ import Appearance from '../sections/Settings/Appearance';
 import { SettingsSkeleton } from '../components/CustomSkeleton';
 import GenaralTab from '../sections/Settings/GenaralTab';
 import OpenHoursTab from '../sections/Settings/OpenHoursTab';
+import ReceiptsTab from '../sections/Settings/ReceiptsTab';
 
-type TabId = 'general' | 'hours' | 'appearance';
+type TabId = 'general' | 'hours' | 'appearance' | 'receipts';
 
 const TABS: { id: TabId; label: string; icon: typeof Store }[] = [
   { id: 'general', label: 'Store details', icon: Store },
   { id: 'hours', label: 'Opening hours', icon: Clock },
   { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'receipts', label: 'Receipts', icon: Receipt },
 ];
 
 const DEFAULT_HOURS = {
@@ -145,9 +147,10 @@ export const Settings = () => {
             handleRemoveBanner={() => setStoreState(prev => (prev ? { ...prev, banner: '' } : null))}
           />
         )}
+        {activeTab === 'receipts' && <ReceiptsTab primaryColor={primaryColor ?? '#2563EB'} />}
       </div>
 
-      <div className="sticky bottom-6 flex items-center justify-end gap-3 z-30 px-6 pointer-events-none">
+      {activeTab !== 'receipts' && <div className="sticky bottom-6 flex items-center justify-end gap-3 z-30 px-6 pointer-events-none">
         <Button
           onClick={handleSave}
           disabled={!restaurant || !storeState || isSubmitting}
@@ -156,7 +159,7 @@ export const Settings = () => {
           <Save className="w-5 h-5 mr-2" />
           {isSubmitting ? 'Saving…' : 'Save settings'}
         </Button>
-      </div>
+      </div>}
     </div>
   );
 };

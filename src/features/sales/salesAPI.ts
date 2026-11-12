@@ -33,4 +33,6 @@ export const SalesAPI = {
         unwrap<SaleDetail>(axiosClient.get(`/api/sales/${id}`, { params: { storeId } })),
     summary: (storeId: string | undefined, range: { from?: string; to?: string; shiftId?: string } = {}) =>
         unwrap<SalesSummary>(axiosClient.get('/api/sales/summary', { params: { storeId, ...range } })),
+    emailReceipt: (id: string, storeId: string | undefined, body: { email: string; gift?: boolean }) =>
+        unwrap<{ sent: true; receiptNumber: string; gift: boolean }>(axiosClient.post(`/api/sales/${id}/email-receipt`, body, { params: { storeId } })),
 };

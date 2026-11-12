@@ -6,10 +6,12 @@ interface Props {
     sale: Sale;
     storeName: string;
     storeAddress?: string;
+    /** Gift receipt: what was bought, without prices, totals or payments. */
+    gift?: boolean;
 }
 
 /** 80mm-style receipt. `window.print()` prints only this element (see the print rule below). */
-export function ReceiptView({ sale, storeName, storeAddress }: Props) {
+export function ReceiptView({ sale, storeName, storeAddress, gift = false }: Props) {
     const vatBreakdown = useMemo(() => {
         const map = new Map<number, { net: number; vat: number; gross: number }>();
         sale.items.forEach(i => {
@@ -35,12 +37,22 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                 <div className="text-center">
                     <div className="text-base font-bold">{storeName}</div>
                     {storeAddress && <div>{storeAddress}</div>}
+                    {gift && <div className="mt-1 font-bold tracking-wider">GIFT RECEIPT</div>}
                 </div>
                 <div className="my-2 border-t border-dashed border-gray-400" />
                 <div className="flex justify-between"><span>Receipt</span><span>{sale.receiptNumber}</span></div>
                 <div className="flex justify-between"><span>{when.toLocaleDateString('en-GB')}</span><span>{when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>
                 {sale.cashierName && <div className="flex justify-between"><span>Served by</span><span>{sale.cashierName}</span></div>}
                 <div className="my-2 border-t border-dashed border-gray-400" />
+                {gift ? (
+                    <>
+                        {sale.items.map(i => (
+                            <div key={i.id} className="mb-1">{i.quantity !== 1 ? `${i.quantity}${Number.isInteger(i.quantity) ? ' ×' : ' kg'} ` : ''}{i.name}</div>
+                        ))}
+                        <div className="my-2 border-t border-dashed border-gray-400" />
+                        <div className="text-center">Bring this receipt with the item to exchange or return it.</div>
+                    </>
+                ) : (<>
                 {sale.items.map(i => (
                     <div key={i.id} className="mb-1">
                         <div className="flex justify-between gap-2"><span className="break-words">{i.name}</span><span>{money(i.lineTotal)}</span></div>
@@ -67,9 +79,10 @@ export function ReceiptView({ sale, storeName, storeAddress }: Props) {
                         <div key={rate} className="flex justify-between"><span>{rate}%</span><span>{money(v.net)}</span><span>{money(v.vat)}</span><span>{money(v.gross)}</span></div>
                     ))}
                 </div>
-                {sale.ageVerified && <div className="mt-2 text-center text-gray-600">Age verification completed</div>}
+                </>)}
+                {!gift && sale.ageVerified && <div className="mt-2 text-center text-gray-600">Age verification completed</div>}
                 <div className="my-2 border-t border-dashed border-gray-400" />
-                {sale.customerName && <div className="mb-1">Customer: {sale.customerName}{sale.pointsEarned > 0 ? ` · +${sale.pointsEarned} pts` : ''}</div>}
+                {!gift && sale.customerName && <div className="mb-1">Customer: {sale.customerName}{sale.pointsEarned > 0 ? ` · +${sale.pointsEarned} pts` : ''}</div>}
                 <div className="text-center">Thank you for shopping with us</div>
             </div>
         </>

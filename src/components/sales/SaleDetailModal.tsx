@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Banknote, CreditCard, Printer } from 'lucide-react';
+import { Banknote, CreditCard, Gift, Mail, Printer } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 import { ReceiptView } from '../till/ReceiptView';
+import { EmailReceiptModal } from '../till/EmailReceiptModal';
+import { useReceiptPrint } from '../till/useReceiptPrint';
 import { SaleStatusBadge } from './SaleStatusBadge';
 import { money } from '../../utils/money';
 import { round2 } from '../../utils/basket';
@@ -11,6 +13,7 @@ import { handleApiError } from '../../api/handleApiError';
 import { SalesAPI } from '../../features/sales/salesAPI';
 import { DISPOSITION_LABELS, REASON_LABELS } from '../../features/refunds/labels';
 import type { SaleDetail } from '../../features/sales/types';
+import { usePermissions } from '../../hooks/usePermissions';
 
 type Tab = 'items' | 'payments' | 'refunds' | 'receipt';
 
@@ -30,6 +33,9 @@ const MethodIcon = ({ method }: { method: 'cash' | 'card' }) => method === 'cash
 export function SaleDetailModal({ saleId, storeId, storeName, storeAddress, onClose }: Props) {
     const [sale, setSale] = useState<SaleDetail | null>(null);
     const [tab, setTab] = useState<Tab>('items');
+    const receiptPrint = useReceiptPrint(storeName, storeAddress);
+    const [emailing, setEmailing] = useState(false);
+    const { features } = usePermissions();
 
     useEffect(() => {
         setSale(null);
@@ -130,9 +136,14 @@ export function SaleDetailModal({ saleId, storeId, storeName, storeAddress, onCl
 
                     {tab === 'receipt' && (
                         <div className="space-y-3">
-                            <ReceiptView sale={sale} storeName={storeName} storeAddress={storeAddress} />
+                            <ReceiptView sale={sale} storeName={storeName} storeAddress={storeAddress} gift={receiptPrint.gift} />
                             {sale.refunds.length > 0 && <p className="text-center text-xs text-gray-500">This is the original receipt. See the Refunds tab for what was returned.</p>}
-                            <div className="flex justify-center"><Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Reprint receipt</Button></div>
+                            <div className="flex flex-wrap justify-center gap-2">
+                                <Button variant="outline" onClick={() => receiptPrint.print(sale)}><Printer className="w-4 h-4 mr-2" />Reprint receipt</Button>
+                                <Button variant="outline" onClick={() => receiptPrint.print(sale, true)} disabled={sale.status === 'voided'}><Gift className="w-4 h-4 mr-2" />Gift receipt</Button>
+                                {features.emailReceipts && <Button variant="outline" onClick={() => setEmailing(true)} disabled={sale.status === 'voided'}><Mail className="w-4 h-4 mr-2" />Email receipt</Button>}
+                            </div>
+                            {emailing && <EmailReceiptModal sale={sale} storeId={storeId} onClose={() => setEmailing(false)} />}
                         </div>
                     )}
                 </div>

@@ -45,6 +45,7 @@ export interface Sale {
     changeDue: number;
     itemCount: number;
     discountTotal: number;
+    customerId?: string | null;
     customerName: string | null;
     pointsEarned: number;
     /** Loyalty points spent on the sale and what they took off. */

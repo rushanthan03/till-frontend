@@ -43,3 +43,10 @@ export function defaultLevels(role?: string): Levels {
 }
 
 export const LEVEL_LABELS: Record<Level, string> = { yes: 'Allowed', pin: 'Manager PIN', no: 'Not allowed' };
+
+/** Optional features the company admin switches on in Settings. All off until switched on. */
+export interface Features {
+    emailReceipts: boolean;
+}
+
+export const DEFAULT_FEATURES: Features = { emailReceipts: false };
