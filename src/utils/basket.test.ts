@@ -58,6 +58,13 @@ describe('promotions', () => {
         expect(promoFor(line(2, {}, { price: 2 }), [m])).toBeNull();
         expect(promoFor(line(7, {}, { price: 2 }), [m])?.discount).toBe(2);
     });
+    it('buy X get Y free gives the free items in every full group', () => {
+        const b = promo({ type: 'buy_get_free', buyQty: 2, freeQty: 1, percentOff: null });
+        expect(promoFor(line(2, {}, { price: 1.5 }), [b])).toBeNull();
+        expect(lineAmounts(line(3, {}, { price: 1.5 }), [b])).toMatchObject({ lineTotal: 3, promoDiscount: 1.5 });
+        expect(promoFor(line(6, {}, { price: 1.5 }), [b])?.discount).toBe(3);
+        expect(promoFor(line(2.5, {}, { price: 1.5 }), [promo({ type: 'buy_get_free', buyQty: 1, freeQty: 1, percentOff: null })])).toBeNull();
+    });
     it('picks the best single offer and ignores other products', () => {
         const best = promoFor(line(1), [promo({ id: 'a', percentOff: 10 }), promo({ id: 'b', percentOff: 30 }), promo({ id: 'c', productId: 'other', percentOff: 90 })]);
         expect(best?.promo.id).toBe('b');

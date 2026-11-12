@@ -49,7 +49,10 @@ export function promoFor(l: BasketLine, promos: Promotion[]): { promo: Promotion
         if (!applies) continue;
         let d = 0;
         if (p.type === 'percent_off') d = round2((unit * l.quantity * (p.percentOff ?? 0)) / 100);
-        else if (p.buyQty && p.buyQty >= 2 && p.bundlePrice !== null && Number.isInteger(l.quantity)) {
+        else if (p.type === 'buy_get_free') {
+            const buy = p.buyQty ?? 0, free = p.freeQty ?? 0;
+            if (buy >= 1 && free >= 1 && Number.isInteger(l.quantity)) d = round2(Math.floor(l.quantity / (buy + free)) * free * unit);
+        } else if (p.buyQty && p.buyQty >= 2 && p.bundlePrice !== null && Number.isInteger(l.quantity)) {
             d = Math.max(0, round2(Math.floor(l.quantity / p.buyQty) * (unit * p.buyQty - p.bundlePrice)));
         }
         if (d > 0 && (!best || d > best.discount)) best = { promo: p, discount: d };
